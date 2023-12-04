@@ -2,6 +2,10 @@ name: Telegram Bot CI/CD
 
 on:
   push:
+    brname: Telegram Bot CI/CD
+
+on:
+  push:
     branches:
       - main
 
@@ -33,4 +37,4 @@ jobs:
           # Add more debug statements as needed
 
       - name: Run bot
-        run: python pixelateTG.py ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python pixelateTG.py
