@@ -74,42 +74,27 @@ def liotta_overlay(photo_path, user_id, bot):
     faces = detect_faces(image)
 
     for (x, y, w, h) in faces:
-        # Calculate a fixed percentage (e.g., 30%) of the face size
-        percentage = 0.3
-        liotta_size = (int(w * percentage), int(h * percentage))
+        # Resize Liotta to match the width of the detected face
+        liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
 
-        # Resize Liotta to the calculated size
-        liotta_resized = cv2.resize(liotta, liotta_size, interpolation=cv2.INTER_AREA)
-
-        # Calculate position for the Liotta overlay
-        x_pos = x - int(0.5 * (liotta_resized.shape[1] - w))
-        y_pos = y - int(0.5 * (liotta_resized.shape[0] - h))
-
-        # Make sure the Liotta overlay does not go beyond the image boundaries
-        x_pos = max(0, x_pos)
-        y_pos = max(0, y_pos)
-
-        # Calculate the region of interest (ROI) for Liotta overlay
-        roi_liotta = liotta_resized[max(0, -y_pos):min(liotta_resized.shape[0], image.shape[0] - y_pos),
-                                    max(0, -x_pos):min(liotta_resized.shape[1], image.shape[1] - x_pos)]
-
-        # Calculate the region of interest (ROI) in the original image
-        roi_image = image[y_pos:y_pos + roi_liotta.shape[0], x_pos:x_pos + roi_liotta.shape[1]]
 
         # Extract alpha channel
-        alpha_channel = roi_liotta[:, :, 3] / 255.0
+        alpha_channel = liotta_resized[:, :, 3] / 255.0
 
         # Create a mask and inverse mask for Liotta image
         mask = alpha_channel
         mask_inv = 1.0 - mask
 
+        # Region of interest (ROI) in the original image
+        roi = image[y:y+h, x:x+w]
+
         # Blend Liotta and ROI using the mask
         for c in range(0, 3):
-            roi_image[:, :, c] = (mask * roi_liotta[:, :, c] +
-                                  mask_inv * roi_image[:, :, c])
+            roi[:, :, c] = (mask * liotta_resized[:, :, c] +
+                            mask_inv * roi[:, :, c])
 
         # Update the original image with the blended ROI
-        image[y_pos:y_pos + roi_liotta.shape[0], x_pos:x_pos + roi_liotta.shape[1]] = roi_image
+        image[y:y+h, x:x+w] = roi
 
     processed_path = f"processed/{user_id}_liotta.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
