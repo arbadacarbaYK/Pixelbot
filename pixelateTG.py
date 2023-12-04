@@ -68,39 +68,39 @@ def process_image(photo_path, user_id, file_id, bot):
     return processed_path
 
 try:
-    def liotta_overlay(photo_path, user_id, bot):
-        image = cv2.imread(photo_path)
-        liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
+def liotta_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
 
-        faces = detect_faces(image)
+    faces = detect_faces(image)
 
-        for (x, y, w, h) in faces:
-            print(f"Processing face at ({x}, {y}), width: {w}, height: {h}")
-            # Resize Liotta to match the width of the detected face
-            liotta_resized = cv2.resize(liotta, (int(w * 1.5), int(h * 1.5)), interpolation=cv2.INTER_AREA)
+    for (x, y, w, h) in faces:
+        print(f"Processing face at ({x}, {y}), width: {w}, height: {h}")
+        # Resize Liotta to match the width of the detected face
+        liotta_resized = cv2.resize(liotta, (int(w * 1.5), int(h * 1.5)), interpolation=cv2.INTER_AREA)
 
-            # Extract alpha channel
-            alpha_channel = liotta_resized[:, :, 3] / 255.0
+        # Extract alpha channel
+        alpha_channel = liotta_resized[:, :, 3] / 255.0
 
-            # Create a mask and inverse mask for Liotta image
-            mask = alpha_channel
-            mask_inv = 1.0 - mask
+        # Resize mask arrays to match the shape of roi[:, :, c]
+        mask = cv2.resize(alpha_channel, (w, h), interpolation=cv2.INTER_AREA)
+        mask_inv = 1.0 - mask
 
-            # Region of interest (ROI) in the original image
-            roi = image[y:y+h, x:x+w]
+        # Region of interest (ROI) in the original image
+        roi = image[y:y+h, x:x+w]
 
-            # Blend Liotta and ROI using the mask
-            for c in range(0, 3):
-                roi[:, :, c] = (mask * liotta_resized[:, :, c] +
-                                mask_inv * roi[:, :, c])
+        # Blend Liotta and ROI using the resized mask
+        for c in range(0, 3):
+            roi[:, :, c] = (mask * liotta_resized[:, :, c] +
+                            mask_inv * roi[:, :, c])
 
-            # Update the original image with the blended ROI
-            image[y:y+h, x:x+w] = roi
+        # Update the original image with the blended ROI
+        image[y:y+h, x:x+w] = roi
 
-        processed_path = f"processed/{user_id}_liotta.jpg"
-        cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+    processed_path = f"processed/{user_id}_liotta.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
-        return processed_path
+    return processed_path
 except Exception as e:
     print(f"Error in liotta_overlay function: {e}")
 
