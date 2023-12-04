@@ -85,6 +85,10 @@ def liotta_overlay(photo_path, user_id, bot):
         x_pos = x - int(0.5 * (liotta_resized.shape[1] - w))
         y_pos = y - int(0.5 * (liotta_resized.shape[0] - h))
 
+        # Make sure the Liotta overlay does not go beyond the image boundaries
+        x_pos = max(0, x_pos)
+        y_pos = max(0, y_pos)
+
         # Region of interest (ROI) in the original image
         roi = image[y_pos:y_pos + liotta_resized.shape[0], x_pos:x_pos + liotta_resized.shape[1]]
 
@@ -107,6 +111,7 @@ def liotta_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 
 def detect_faces(image):
