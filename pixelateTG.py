@@ -68,6 +68,10 @@ def liotta_overlay(image, face_coordinates):
     (x, y, w, h) = face_coordinates
     liotta = cv2.imread('liotta.png', -1)
 
+    # Resize Liotta to fit the detected fdef liotta_overlay(image, face_coordinates):
+    (x, y, w, h) = face_coordinates
+    liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
+
     # Resize Liotta to fit the detected face
     liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
 
