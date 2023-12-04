@@ -32,18 +32,18 @@ def process_image(photo_path, chat_id, bot):
 
     # ... (rest of the image processing logic remains the same)
 
-    processed_path = f"processed/{chat_id}_{photo_path}"  # Fix: changed 'file_path' to 'photo_path'
+    processed_path = f"processed/{chat_id}_{file_path}"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
 
-def main() -> None:
-    updater = Updater(TOKEN)
+def main(update_queue=None) -> None:
+    updater = Updater(TOKEN, update_queue)
 
     dp = updater.dispatcher
 
     dp.add_handler(MessageHandler(filters.Photo, pixelate_faces))
-    dp.add_handler(MessageHandler(filters.Command & filters.Text & ~filters.Update.edited_message, start))
+    dp.add_handler(MessageHandler(filters.Command & filters.Text & ~filters.update.EditedMessage, start))
 
     updater.start_polling()
 
