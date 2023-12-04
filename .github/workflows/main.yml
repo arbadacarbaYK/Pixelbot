@@ -2,10 +2,6 @@ name: Telegram Bot CI/CD
 
 on:
   push:
-    brname: Telegram Bot CI/CD
-
-on:
-  push:
     branches:
       - main
 
