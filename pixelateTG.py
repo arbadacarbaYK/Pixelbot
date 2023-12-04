@@ -36,8 +36,10 @@ def pixelate_faces(update: Update, context: CallbackContext):
 def process_image(photo_path, chat_id, file_id, bot):
     image = cv2.imread(photo_path)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    faces = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml').detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
-
+    
+    # Use a more lightweight face detection model like MTCNN
+    faces = detect_faces(image)
+    
     for (x, y, w, h) in faces:
         face = image[y:y+h, x:x+w]
         pixelated_face = cv2.resize(face, (0, 0), fx=0.03, fy=0.03, interpolation=cv2.INTER_NEAREST)
@@ -47,6 +49,12 @@ def process_image(photo_path, chat_id, file_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
+def detect_faces(image):
+    # Use MTCNN for face detection
+    mtcnn = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    faces = mtcnn.detectMultiScale(image, scaleFactor=1.1, minNeighbors=5)
+    return faces
 
 def main():
     updater = Updater(TOKEN, use_context=True)
@@ -59,6 +67,6 @@ def main():
     updater.start_polling()
 
     updater.idle()
-    
+
 if __name__ == '__main__':
     main()
