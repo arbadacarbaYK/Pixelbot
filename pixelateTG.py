@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import asyncio
 from telegram import Update
-from telegram.ext import Updater, MessageHandler, filters, CallbackContext, Defaults
+from telegram.ext import Updater, MessageHandler, filters, CallbackContext
 from concurrent.futures import ThreadPoolExecutor
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN'] 
