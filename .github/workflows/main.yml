@@ -24,8 +24,8 @@ jobs:
       - name: Set Telegram BOT token
         run: echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> $GITHUB_ENV
 
-      - name: Install black
-        run: pip install black
+      - name: Upgrade black
+        run: python -m pip install --upgrade black
 
       - name: Format code with black
         run: black .
