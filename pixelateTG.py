@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 from telegram import Update
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, MessageHandler, filters, CallbackContext
 from concurrent.futures import ThreadPoolExecutor
 
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_DEFAULT_TOKEN')
