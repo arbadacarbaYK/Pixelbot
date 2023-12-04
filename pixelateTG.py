@@ -11,6 +11,15 @@ MAX_THREADS = 5
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
 
+def detect_heads(image):
+    mtcnn = MTCNN()
+    faces = mtcnn.detect_faces(image)
+    
+    # Assuming heads are 1.5 times larger than faces
+    head_boxes = [(x, y, int(1.5 * w), int(1.5 * h)) for (x, y, w, h) in faces]
+    
+    return head_boxes
+
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     file_id = update.message.photo[-1].file_id
     file = context.bot.get_file(file_id)
@@ -33,48 +42,14 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     context.user_data['photo_path'] = photo_path
     context.user_data['user_id'] = update.message.from_user.id
 
-def button_callback(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-
-    option = query.data
-    photo_path = context.user_data['photo_path']
-    user_id = context.user_data['user_id']
-
-    if option == 'pixelate':
-        processed_path = process_image(photo_path, user_id, 'pixelated', context.bot)
-    elif option == 'liotta':
-        processed_path = liotta_overlay(photo_path, user_id, context.bot)
-
-    context.bot.send_photo(chat_id=update.callback_query.message.chat_id, photo=open(processed_path, 'rb'))
-
-def process_image(photo_path, user_id, file_id, bot):
-    image = cv2.imread(photo_path)
-    faces = detect_faces(image)
-
-    for (x, y, w, h) in faces:
-        # Extract the face
-        face = image[y:y+h, x:x+w]
-
-        # Apply pixelation directly to the face
-        pixelated_face = cv2.resize(face, (0, 0), fx=0.03, fy=0.03, interpolation=cv2.INTER_NEAREST)
-
-        # Replace the face in the original image with the pixelated version
-        image[y:y+h, x:x+w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
-
-    processed_path = f"processed/{user_id}_{file_id}.jpg"
-    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-
-    return processed_path
-
 def liotta_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
 
-    faces = detect_faces(image)
+    heads = detect_heads(image)
 
-    for (x, y, w, h) in faces:
-        print(f"Processing face at ({x}, {y}), width: {w}, height: {h}")
+    for (x, y, w, h) in heads:
+        print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
         
         # Region of interest (ROI) in the original image
         roi = image[y:y+h, x:x+w]
@@ -102,11 +77,39 @@ def liotta_overlay(photo_path, user_id, bot):
 
     return processed_path
 
-def detect_faces(image):
-    mtcnn = MTCNN()
-    faces = mtcnn.detect_faces(image)
-    bounding_boxes = [face['box'] for face in faces]
-    return bounding_boxes
+def button_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+
+    option = query.data
+    photo_path = context.user_data['photo_path']
+    user_id = context.user_data['user_id']
+
+    if option == 'pixelate':
+        processed_path = process_image(photo_path, user_id, 'pixelated', context.bot)
+    elif option == 'liotta':
+        processed_path = liotta_overlay(photo_path, user_id, context.bot)
+
+    context.bot.send_photo(chat_id=update.callback_query.message.chat_id, photo=open(processed_path, 'rb'))
+
+def process_image(photo_path, user_id, file_id, bot):
+    image = cv2.imread(photo_path)
+    faces = detect_heads(image)
+
+    for (x, y, w, h) in faces:
+        # Extract the face
+        face = image[y:y+h, x:x+w]
+
+        # Apply pixelation directly to the face
+        pixelated_face = cv2.resize(face, (0, 0), fx=0.03, fy=0.03, interpolation=cv2.INTER_NEAREST)
+
+        # Replace the face in the original image with the pixelated version
+        image[y:y+h, x:x+w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
+
+    processed_path = f"processed/{user_id}_{file_id}.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
 
 def main() -> None:
     updater = Updater(TOKEN, use_context=True)
@@ -123,4 +126,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
