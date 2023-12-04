@@ -38,12 +38,12 @@ def process_image(photo_path, chat_id, bot):
     return processed_path
 
 def main() -> None:
-    updater = Updater(TOKEN)
+    updater = Updater(TOKEN, use_context=True)
 
     dp = updater.dispatcher
 
-    dp.add_handler(MessageHandler(Filters.photo, pixelate_faces))
-    dp.add_handler(MessageHandler(Filters.command & Filters.text & ~Filters.update.edited_message, start))
+    dp.add_handler(MessageHandler(filters.Photo, pixelate_faces))
+    dp.add_handler(MessageHandler(filters.Command & filters.Text & ~filters.Update.edited_message, start))
 
     updater.start_polling()
 
