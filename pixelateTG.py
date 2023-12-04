@@ -57,15 +57,16 @@ def process_image(photo_path, user_id, file_id, bot):
         face = image[y:y+h, x:x+w]
         
         # Resize the face to match the size of the Liotta overlay
-        resized_face = cv2.resize(face, (liotta_width, liotta_height), interpolation=cv2.INTER_NEAREST)
+        resized_face = cv2.resize(face, (w, h), interpolation=cv2.INTER_NEAREST)
         
         # Apply the resized face to the image
         image[y:y+h, x:x+w] = resized_face
 
-    processed_path = f"processed/{user_id}_{file_id}.jpg"
+    processed_path = f"processed/{user_id}_liotta.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 def liotta_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
