@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 from telegram import Update
-from telegram.ext import Updater, MessageHandler, filters, CallbackContext
+from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
 from concurrent.futures import ThreadPoolExecutor
 
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_DEFAULT_TOKEN')
@@ -32,7 +32,7 @@ def process_image(photo_path, chat_id, bot):
 
     # ... (rest of the image processing logic remains the same)
 
-    processed_path = f"processed/{chat_id}_{file_path}"
+    processed_path = f"processed/{chat_id}_{photo_path}"  # Fix: changed 'file_path' to 'photo_path'
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
