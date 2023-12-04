@@ -15,10 +15,10 @@ def detect_heads(image):
     mtcnn = MTCNN()
     faces = mtcnn.detect_faces(image)
     
-    # Assuming heads are 1.5 times larger than faces
-    head_boxes = [(x, y, int(1.5 * w), int(1.5 * h)) for (x, y, w, h) in faces]
+    # Extracting bounding boxes from the faces
+    head_boxes = [(face['box'][0], face['box'][1], int(1.5 * face['box'][2]), int(1.5 * face['box'][3])) for face in faces]
     
-    return head_boxes
+    return head_boxe
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     file_id = update.message.photo[-1].file_id
