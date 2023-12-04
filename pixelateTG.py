@@ -74,15 +74,16 @@ def liotta_overlay(photo_path, user_id, bot):
     faces = detect_faces(image)
 
     for (x, y, w, h) in faces:
-        # Resize Liotta to be 30% bigger than the detected face
-        liotta_resized = cv2.resize(liotta, (int(1.3 * w), int(1.3 * h)), interpolation=cv2.INTER_AREA)
+        # Calculate a fixed percentage (e.g., 30%) of the face size
+        percentage = 0.3
+        liotta_size = (int(w * percentage), int(h * percentage))
 
-        # Ensure Liotta doesn't exceed the image boundaries
-        liotta_resized = liotta_resized[:min(h, liotta_resized.shape[0]), :min(w, liotta_resized.shape[1])]
+        # Resize Liotta to the calculated size
+        liotta_resized = cv2.resize(liotta, liotta_size, interpolation=cv2.INTER_AREA)
 
         # Calculate position for the Liotta overlay
-        x_pos = max(x - int(0.15 * w), 0)
-        y_pos = max(y - int(0.15 * h), 0)
+        x_pos = x - int(0.5 * (liotta_resized.shape[1] - w))
+        y_pos = y - int(0.5 * (liotta_resized.shape[0] - h))
 
         # Region of interest (ROI) in the original image
         roi = image[y_pos:y_pos + liotta_resized.shape[0], x_pos:x_pos + liotta_resized.shape[1]]
