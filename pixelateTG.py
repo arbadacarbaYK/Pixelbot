@@ -43,6 +43,7 @@ def button_click(update: Update, context: CallbackContext):
 def process_image(photo_path, chat_id, file_id, bot):
     # Your pixelation logic here
 
+# fmt: off
 def liotta_overlay(photo_path, chat_id, bot):
     image = cv2.imread(photo_path)
     liotta = cv2.imread('liotta.png')
@@ -58,6 +59,7 @@ def liotta_overlay(photo_path, chat_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+# fmt: on
 
 def detect_faces(image):
     mtcnn = MTCNN()
