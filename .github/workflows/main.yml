@@ -24,8 +24,15 @@ jobs:
       - name: Set Telegram BOT token
         run: echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> $GITHUB_ENV
 
+      - name: Run Prettier
+        run: npm install --global prettier
+          
+      - name: Format code with Prettier
+        run: prettier --write .
+
       - name: Run bot
         run: |
           python pixelateTG.py
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+
