@@ -1,8 +1,9 @@
 import os
 import cv2
 import numpy as np
+import asyncio
 from telegram import Update
-from telegram.ext import Updater, MessageHandler, filters, CallbackContext
+from telegram.ext import Updater, MessageHandler, filters, CallbackContext, Defaults
 from concurrent.futures import ThreadPoolExecutor
 
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_DEFAULT_TOKEN')
@@ -38,7 +39,9 @@ def process_image(photo_path, chat_id, bot):
     return processed_path
 
 def main() -> None:
-    updater = Updater(TOKEN, use_context=True)
+    update_queue = asyncio.Queue()
+    
+    updater = Updater(TOKEN, use_context=True, defaults=Defaults(update_queue=update_queue))
 
     dp = updater.dispatcher
 
@@ -48,6 +51,6 @@ def main() -> None:
     updater.start_polling()
 
     updater.idle()
-    
+
 if __name__ == '__main__':
     main()
