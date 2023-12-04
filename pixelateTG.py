@@ -1,6 +1,5 @@
 import os
 import cv2
-import numpy as np
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler, CallbackQueryHandler
 from concurrent.futures import ThreadPoolExecutor
@@ -64,31 +63,24 @@ def process_image(photo_path, user_id, file_id, bot):
 
     return processed_path
 
-def liotta_overlay(image, face_coordinates):
-    (x, y, w, h) = face_coordinates
-    liotta = cv2.imread('liotta.png', -1)
-
-    # Resize Liotta to fit the detected fdef liotta_overlay(image, face_coordinates):
-    (x, y, w, h) = face_coordinates
+def liotta_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
     liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
 
-    # Resize Liotta to fit the detected face
-    liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
+    faces = detect_faces(image)
 
-    # Create a mask and inverse mask for Liotta image
-    mask = liotta_resized[:, :, 3] / 255.0
-    mask_inv = 1.0 - mask
+    for (x, y, w, h) in faces:
+        liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
+        alpha_s = liotta_resized[:, :, 3] / 255.0
+        alpha_l = 1.0 - alpha_s
+        for c in range(0, 3):
+            image[y:y+h, x:x+w, c] = (alpha_s * liotta_resized[:, :, c] +
+                                       alpha_l * image[y:y+h, x:x+w, c])
 
-    # Region of interest (ROI) in the original image
-    roi = image[y:y+h, x:x+w]
+    processed_path = f"processed/{user_id}_liotta.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
-    # Blend Liotta and ROI using the mask
-    for c in range(0, 3):
-        roi[:, :, c] = (mask * liotta_resized[:, :, c] +
-                        mask_inv * roi[:, :, c])
-
-    # Update the original image with the blended ROI
-    image[y:y+h, x:x+w] = roi
+    return processed_path
 
 def detect_faces(image):
     mtcnn = MTCNN()
