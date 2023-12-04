@@ -39,18 +39,15 @@ def process_image(photo_path, chat_id, bot):
     return processed_path
 
 def main() -> None:
-    update_queue = asyncio.Queue()
-    
-    updater = Updater(TOKEN, use_context=True, defaults=Defaults(update_queue=update_queue))
+   update_queue = asyncio.Queue()   
+   updater = Updater(TOKEN, use_context=True)
 
-    dp = updater.dispatcher
+   dp = updater.dispatcher  
+   dp.add_handler(MessageHandler(Filters.photo, pixelate_faces))
+   dp.add_handler(MessageHandler(Filters.command & Filters.text & ~Filters.update.edited_message, start))
 
-    dp.add_handler(MessageHandler(Filters.photo, pixelate_faces))
-    dp.add_handler(MessageHandler(Filters.command & Filters.text & ~Filters.update.edited_message, start))
-
-    updater.start_polling()
-
-    updater.idle()
+   updater.start_polling()
+   updater.idle()
 
 if __name__ == '__main__':
     main()
