@@ -55,7 +55,7 @@ def process_image(photo_path, user_id, file_id, bot):
     for (x, y, w, h) in faces:
         # Resize the face to match the dimensions of the Liotta overlay
         resized_face = cv2.resize(image[y:y+h, x:x+w], (w, h), interpolation=cv2.INTER_NEAREST)
-        
+
         # Apply the resized face to the image
         image[y:y+h, x:x+w] = resized_face
 
@@ -71,8 +71,8 @@ def liotta_overlay(photo_path, user_id, bot):
     faces = detect_faces(image)
 
     for (x, y, w, h) in faces:
-        # Resize Liotta to fit the detected face
-        liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
+        # Resize Liotta to match the width of the detected face
+        liotta_resized = cv2.resize(liotta, (w, liotta.shape[0]), interpolation=cv2.INTER_AREA)
 
         # Extract alpha channel
         alpha_channel = liotta_resized[:, :, 3] / 255.0
@@ -96,7 +96,6 @@ def liotta_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
 
 def detect_faces(image):
     mtcnn = MTCNN()
