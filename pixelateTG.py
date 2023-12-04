@@ -53,11 +53,14 @@ def process_image(photo_path, user_id, file_id, bot):
     faces = detect_faces(image)
 
     for (x, y, w, h) in faces:
-        # Resize the face to match the dimensions of the Liotta overlay
-        resized_face = cv2.resize(image[y:y+h, x:x+w], (w, h), interpolation=cv2.INTER_NEAREST)
+        # Extract the face
+        face = image[y:y+h, x:x+w]
 
-        # Apply the resized face to the image
-        image[y:y+h, x:x+w] = resized_face
+        # Apply pixelation directly to the face
+        pixelated_face = cv2.resize(face, (0, 0), fx=0.03, fy=0.03, interpolation=cv2.INTER_NEAREST)
+
+        # Replace the face in the original image with the pixelated version
+        image[y:y+h, x:x+w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
 
     processed_path = f"processed/{user_id}_{file_id}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
@@ -72,7 +75,8 @@ def liotta_overlay(photo_path, user_id, bot):
 
     for (x, y, w, h) in faces:
         # Resize Liotta to match the width of the detected face
-        liotta_resized = cv2.resize(liotta, (w, liotta.shape[0]), interpolation=cv2.INTER_AREA)
+        liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
+
 
         # Extract alpha channel
         alpha_channel = liotta_resized[:, :, 3] / 255.0
