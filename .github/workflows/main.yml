@@ -26,6 +26,9 @@ jobs:
         run: |
           echo "Current Directory: $(pwd)"
           echo "Contents of the Directory: $(ls -la)"
+          echo "TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}"
+          chmod +x pixelateTG.py
+          echo "Script Permissions: $(ls -la pixelateTG.py)"
           # Add more debug statements as needed
 
       - name: Run bot
