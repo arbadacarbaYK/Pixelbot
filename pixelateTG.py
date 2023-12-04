@@ -2,8 +2,8 @@
 
 import os
 import cv2
-from telegram import Update
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 from concurrent.futures import ThreadPoolExecutor
 from mtcnn.mtcnn import MTCNN
 
@@ -11,7 +11,22 @@ TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 5
 
 def start(update: Update, context: CallbackContext):
-    update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
+    keyboard = [
+        [InlineKeyboardButton("Pixelate Faces", callback_data='pixelate')],
+        [InlineKeyboardButton("Overlay with Liotta", callback_data='overlay')],
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text('Choose an option:', reply_markup=reply_markup)
+
+def button_callback(update: Update, context: CallbackContext):
+    query = update.callback_query
+    option = query.data
+
+    if option == 'pixelate':
+        pixelate_faces(update, context)
+    elif option == 'overlay':
+        overlay_faces(update, context)
 
 def pixelate_faces(update: Update, context: CallbackContext):
     if update.message.photo:
@@ -34,6 +49,10 @@ def pixelate_faces(update: Update, context: CallbackContext):
     else:
         update.message.reply_text('Please send a photo.')
 
+def overlay_faces(update: Update, context: CallbackContext):
+    # Implement the logic to overlay faces with Liotta image
+    pass
+
 def process_image(photo_path, chat_id, file_id, bot):
     image = cv2.imread(photo_path)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -53,17 +72,17 @@ def process_image(photo_path, chat_id, file_id, bot):
 
 def detect_faces(image):
     # Use MTCNN for face detection
-    mtcnn = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    faces = mtcnn.detectMultiScale(image, scaleFactor=1.1, minNeighbors=5)
-    return faces
+    mtcnn = MTCNN()
+    faces = mtcnn.detect_faces(image)
+    return [(face['box'][0], face['box'][1], face['box'][2], face['box'][3]) for face in faces]
 
 def main():
     updater = Updater(TOKEN, use_context=True)
 
     dp = updater.dispatcher
 
-    dp.add_handler(MessageHandler(Filters.photo, pixelate_faces))
-    dp.add_handler(MessageHandler(Filters.command & Filters.text & ~Filters.update.edited_message, start))
+    dp.add_handler(MessageHandler(Filters.photo, start))
+    dp.add_handler(CallbackQueryHandler(button_callback))
 
     updater.start_polling()
 
