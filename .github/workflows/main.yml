@@ -1,36 +1,31 @@
-name: Telegram Bot CI/CD
+name: Pixelbot
 
 on:
   push:
-    branches:
-      - main
+    branches: main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
-          python-version: 3.x
+          python-version: 3.8
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install python-telegram-bot opencv-python
+        run: pip install -r requirements.txt
 
-      - name: Debugging Step
-        run: |
-          echo -e "\n\033[1;34mCurrent Directory: \033[0m$(pwd)"
-          echo -e "\n\033[1;34mContents of the Directory: \033[0m$(ls -la)"
-          echo -e "\n\033[1;34mTELEGRAM_BOT_TOKEN: \033[0m${{ secrets.TELEGRAM_BOT_TOKEN }}"
-          chmod +x pixelateTG.py
-          echo -e "\n\033[1;34mScript Permissions: \033[0m$(ls -la pixelateTG.py)"
-          # Add more debug statements as needed
+      - name: Set Telegram BOT token
+        run: echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> $GITHUB_ENV
 
       - name: Run bot
-        run: python pixelateTG.py
+        run: |
+          python pixelateTG.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
