@@ -43,7 +43,7 @@ def main() -> None:
   while True:
 
     update_queue = asyncio.Queue()
-    updater = Updater(update_queue, TOKEN)
+    updater = Updater(TOKEN)
 
     dp = updater.dispatcher    
 
