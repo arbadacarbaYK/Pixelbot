@@ -38,7 +38,7 @@ def process_image(photo_path, chat_id, bot):
     return processed_path
 
 def main() -> None:
-    updater = Updater(TOKEN)
+    updater = Updater(TOKEN, use_context=True)
 
     dp = updater.dispatcher
 
