@@ -8,9 +8,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+
+      - name: Format YAML files
+        run: |
+          yq eval-all --inplace '.' .github/workflows/main.yml
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -24,17 +29,12 @@ jobs:
 
       - name: Debugging Step
         run: |
-          echo "Current Directory: $(pwd)"
-          echo "Contents of the Directory: $(ls -la)"
-          echo "TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}"
+          echo -e "\n\033[1;34mCurrent Directory: \033[0m$(pwd)"
+          echo -e "\n\033[1;34mContents of the Directory: \033[0m$(ls -la)"
+          echo -e "\n\033[1;34mTELEGRAM_BOT_TOKEN: \033[0m${{ secrets.TELEGRAM_BOT_TOKEN }}"
           chmod +x pixelateTG.py
-          echo "Script Permissions: $(ls -la pixelateTG.py)"
+          echo -e "\n\033[1;34mScript Permissions: \033[0m$(ls -la pixelateTG.py)"
           # Add more debug statements as needed
 
       - name: Run bot
         run: python pixelateTG.py ${{ secrets.TELEGRAM_BOT_TOKEN }}
-
-- name: Format YAML files
-  run: |
-    yq eval-all --inplace '.' .github/workflows/main.yml
-
