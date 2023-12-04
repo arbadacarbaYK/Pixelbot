@@ -67,6 +67,7 @@ def process_image(photo_path, user_id, file_id, bot):
 
     return processed_path
 
+try:
 def liotta_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
@@ -74,9 +75,10 @@ def liotta_overlay(photo_path, user_id, bot):
     faces = detect_faces(image)
 
     for (x, y, w, h) in faces:
-        # Resize Liotta to match the width of the detected face
+        print(f"Processing face at ({x}, {y}), width: {w}, height: {h}")
+    # Resize Liotta to match the width of the detected face
         liotta_resized = cv2.resize(liotta, (int(w * 1.5), int(h * 1.5)), interpolation=cv2.INTER_AREA)
-
+    
 
         # Extract alpha channel
         alpha_channel = liotta_resized[:, :, 3] / 255.0
@@ -100,6 +102,9 @@ def liotta_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+except Exception as e:
+    print(f"Error in liotta_overlay function: {e}")
+
 
 def detect_faces(image):
     mtcnn = MTCNN()
