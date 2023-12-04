@@ -16,7 +16,12 @@ def pixelate_faces(update: Update, context: CallbackContext):
     if update.message.photo:
         file_id = update.message.photo[-1].file_id
         file = context.bot.get_file(file_id)
-        photo_path = f"downloads/{file.file_path}"
+        
+        # Extract the file name from the file path
+        file_name = file.file_path.split('/')[-1]
+        
+        # Construct the local file path
+        photo_path = f"downloads/{file_name}"
         file.download(photo_path)
 
         with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
