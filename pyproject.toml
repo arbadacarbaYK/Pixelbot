@@ -1,0 +1,3 @@
+[tool.black]
+line-length = 88  # Adjust as needed
+target-version = ['py38']  # Adjust to your Python version
