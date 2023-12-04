@@ -75,7 +75,7 @@ def liotta_overlay(photo_path, user_id, bot):
 
     for (x, y, w, h) in faces:
         # Resize Liotta to match the width of the detected face
-        liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
+        liotta_resized = cv2.resize(liotta, (int(w * 1.5), int(h * 1.5)), interpolation=cv2.INTER_AREA)
 
 
         # Extract alpha channel
