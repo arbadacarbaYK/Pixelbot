@@ -50,23 +50,19 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     faces = detect_faces(image)
 
     for (x, y, w, h) in faces:
-        face = image[y:y+h, x:x+w]
-        
-        # Resize the face to match the size of the Liotta overlay
-        resized_face = cv2.resize(face, (w, h), interpolation=cv2.INTER_NEAREST)
+        # Resize the face to match the dimensions of the Liotta overlay
+        resized_face = cv2.resize(image[y:y+h, x:x+w], (w, h), interpolation=cv2.INTER_NEAREST)
         
         # Apply the resized face to the image
         image[y:y+h, x:x+w] = resized_face
 
-    processed_path = f"processed/{user_id}_liotta.jpg"
+    processed_path = f"processed/{user_id}_{file_id}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
 
 def liotta_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
@@ -75,17 +71,32 @@ def liotta_overlay(photo_path, user_id, bot):
     faces = detect_faces(image)
 
     for (x, y, w, h) in faces:
+        # Resize Liotta to fit the detected face
         liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
-        alpha_s = liotta_resized[:, :, 3] / 255.0
-        alpha_l = 1.0 - alpha_s
+
+        # Extract alpha channel
+        alpha_channel = liotta_resized[:, :, 3] / 255.0
+
+        # Create a mask and inverse mask for Liotta image
+        mask = alpha_channel
+        mask_inv = 1.0 - mask
+
+        # Region of interest (ROI) in the original image
+        roi = image[y:y+h, x:x+w]
+
+        # Blend Liotta and ROI using the mask
         for c in range(0, 3):
-            image[y:y+h, x:x+w, c] = (alpha_s * liotta_resized[:, :, c] +
-                                       alpha_l * image[y:y+h, x:x+w, c])
+            roi[:, :, c] = (mask * liotta_resized[:, :, c] +
+                            mask_inv * roi[:, :, c])
+
+        # Update the original image with the blended ROI
+        image[y:y+h, x:x+w] = roi
 
     processed_path = f"processed/{user_id}_liotta.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 def detect_faces(image):
     mtcnn = MTCNN()
