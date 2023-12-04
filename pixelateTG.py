@@ -18,7 +18,8 @@ def detect_heads(image):
     # Extracting bounding boxes from the faces
     head_boxes = [(face['box'][0], face['box'][1], int(1.5 * face['box'][2]), int(1.5 * face['box'][3])) for face in faces]
     
-    return head_boxe
+    return head_boxes
+
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     file_id = update.message.photo[-1].file_id
