@@ -74,9 +74,13 @@ def liotta_overlay(photo_path, user_id, bot):
         liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
         alpha_s = liotta_resized[:, :, 3] / 255.0
         alpha_l = 1.0 - alpha_s
+
+        liotta_face = np.zeros_like(image[y:y+h, x:x+w])
         for c in range(0, 3):
-            image[y:y+h, x:x+w, c] = (alpha_s * liotta_resized[:, :, c] +
-                                       alpha_l * image[y:y+h, x:x+w, c])
+            liotta_face[:, :, c] = (alpha_s * liotta_resized[:, :, c] +
+                                    alpha_l * image[y:y+h, x:x+w, c])
+
+        image[y:y+h, x:x+w] = liotta_face
 
     processed_path = f"processed/{user_id}_liotta.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
