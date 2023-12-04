@@ -91,7 +91,8 @@ try:
 
             # Blend Liotta and ROI using the resized mask
             for c in range(0, 3):
-                roi[:, :, c] = (mask * liotta_resized[:, :, c] +
+                mask_resized = cv2.resize(mask, (w, h), interpolation=cv2.INTER_AREA)
+                roi[:, :, c] = (mask_resized * liotta_resized[:, :, c] +
                                 mask_inv * roi[:, :, c])
 
             # Update the original image with the blended ROI
