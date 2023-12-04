@@ -19,9 +19,9 @@ jobs:
           python-version: 3.8
 
       - name: Install dependencies
-          run: |
-            pip install -r requirements.txt
-            pip install mtcnn
+        run: |
+           pip install -r requirements.txt
+           pip install mtcnn
 
       - name: Set Telegram BOT token
         run: echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> $GITHUB_ENV
