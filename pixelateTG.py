@@ -89,11 +89,15 @@ def liotta_overlay(photo_path, user_id, bot):
         x_pos = max(0, x_pos)
         y_pos = max(0, y_pos)
 
-        # Region of interest (ROI) in the original image
-        roi = image[y_pos:y_pos + liotta_resized.shape[0], x_pos:x_pos + liotta_resized.shape[1]]
+        # Calculate the region of interest (ROI) for Liotta overlay
+        roi_liotta = liotta_resized[max(0, -y_pos):min(liotta_resized.shape[0], image.shape[0] - y_pos),
+                                    max(0, -x_pos):min(liotta_resized.shape[1], image.shape[1] - x_pos)]
+
+        # Calculate the region of interest (ROI) in the original image
+        roi_image = image[y_pos:y_pos + roi_liotta.shape[0], x_pos:x_pos + roi_liotta.shape[1]]
 
         # Extract alpha channel
-        alpha_channel = liotta_resized[:, :, 3] / 255.0
+        alpha_channel = roi_liotta[:, :, 3] / 255.0
 
         # Create a mask and inverse mask for Liotta image
         mask = alpha_channel
@@ -101,18 +105,16 @@ def liotta_overlay(photo_path, user_id, bot):
 
         # Blend Liotta and ROI using the mask
         for c in range(0, 3):
-            roi[:, :, c] = (mask * liotta_resized[:, :, c] +
-                            mask_inv * roi[:, :, c])
+            roi_image[:, :, c] = (mask * roi_liotta[:, :, c] +
+                                  mask_inv * roi_image[:, :, c])
 
         # Update the original image with the blended ROI
-        image[y_pos:y_pos + liotta_resized.shape[0], x_pos:x_pos + liotta_resized.shape[1]] = roi
+        image[y_pos:y_pos + roi_liotta.shape[0], x_pos:x_pos + roi_liotta.shape[1]] = roi_image
 
     processed_path = f"processed/{user_id}_liotta.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
-
 
 def detect_faces(image):
     mtcnn = MTCNN()
