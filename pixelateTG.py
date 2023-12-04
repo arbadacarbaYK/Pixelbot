@@ -75,21 +75,19 @@ def liotta_overlay(photo_path, user_id, bot):
 
     for (x, y, w, h) in faces:
         print(f"Processing face at ({x}, {y}), width: {w}, height: {h}")
-        # Resize Liotta to match the width of the detected face
+        
+        # Region of interest (ROI) in the original image
+        roi = image[y:y+h, x:x+w]
+
+        # Resize Liotta to match the width and height of the ROI
         liotta_resized = cv2.resize(liotta, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
 
         # Extract alpha channel
         alpha_channel = liotta_resized[:, :, 3] / 255.0
 
         # Resize mask arrays to match the shape of roi[:, :, c]
-        mask = cv2.resize(alpha_channel, (w, h), interpolation=cv2.INTER_AREA)
+        mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
         mask_inv = 1.0 - mask
-
-        # Region of interest (ROI) in the original image
-        roi = image[y:y+h, x:x+w]
-
-        # Print dimensions for debugging
-        print(f"Dimensions: roi={roi.shape}, mask={mask.shape}, liotta_resized={liotta_resized.shape}")
 
         # Blend Liotta and ROI using the resized mask
         for c in range(0, 3):
