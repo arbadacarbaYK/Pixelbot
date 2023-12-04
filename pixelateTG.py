@@ -40,7 +40,7 @@ def process_image(photo_path, chat_id, bot):
 
 def main() -> None:
    update_queue = asyncio.Queue()   
-   updater = Updater(TOKEN, use_context=True)
+   updater = Updater(TOKEN)
 
    dp = updater.dispatcher  
    dp.add_handler(MessageHandler(Filters.photo, pixelate_faces))
