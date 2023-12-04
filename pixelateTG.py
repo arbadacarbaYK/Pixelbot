@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import Updater, MessageHandler, filters, CallbackContext, Defaults
 from concurrent.futures import ThreadPoolExecutor
 
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_DEFAULT_TOKEN')
+TOKEN = os.environ['TELEGRAM_BOT_TOKEN'] 
 MAX_THREADS = 5
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -39,16 +39,19 @@ def process_image(photo_path, chat_id, bot):
     return processed_path
 
 def main() -> None:
-  update_queue = asyncio.Queue()
-  updater = Updater(update_queue, TOKEN)
 
-  dp = updater.dispatcher   
+  while True:
 
-  dp.add_handler(MessageHandler(Filters.photo, pixelate_faces))
-  dp.add_handler(MessageHandler(Filters.command & Filters.text & ~Filters.update.edited_message, start))
+    update_queue = asyncio.Queue()
+    updater = Updater(update_queue, TOKEN)
 
-  updater.start_polling()
-  updater.idle()
-    
+    dp = updater.dispatcher    
+
+    dp.add_handler(MessageHandler(Filters.photo, pixelate_faces))
+    dp.add_handler(MessageHandler(Filters.command & Filters.text & ~Filters.update.edited_message, start))
+
+    updater.start_polling()
+    updater.idle()
+
 if __name__ == '__main__':
-    main()
+  main()
