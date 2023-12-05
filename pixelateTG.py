@@ -44,7 +44,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     context.user_data['photo_path'] = photo_path
     context.user_data['user_id'] = update.message.from_user.id
 
-def liotta_def liotta_overlay(photo_path, user_id, bot):
+def liotta_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
 
@@ -85,7 +85,6 @@ def liotta_def liotta_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
