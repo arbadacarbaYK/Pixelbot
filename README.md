@@ -5,7 +5,6 @@ https://t.me/Pixelatebot
 
 
 To Do
-- match liotta to head not to face size
 - catch more faces
 - support more input formats
 
