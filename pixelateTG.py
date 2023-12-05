@@ -2,11 +2,13 @@ import os
 import cv2
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler, CallbackQueryHandler
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 5
+PIXELATION_FACTOR = 0.03
+LIOTTA_RESIZE_FACTOR = 1.5
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
@@ -16,10 +18,9 @@ def detect_heads(image):
     faces = mtcnn.detect_faces(image)
     
     # Extracting bounding boxes from the faces
-    head_boxes = [(face['box'][0], face['box'][1], int(1.5 * face['box'][2]), int(1.5 * face['box'][3])) for face in faces]
+    head_boxes = [(face['box'][0], face['box'][1], int(LIOTTA_RESIZE_FACTOR * face['box'][2]), int(LIOTTA_RESIZE_FACTOR * face['box'][3])) for face in faces]
     
     return head_boxes
-
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     file_id = update.message.photo[-1].file_id
@@ -49,7 +50,7 @@ def liotta_overlay(photo_path, user_id, bot):
 
     heads = detect_heads(image)
 
-    for (x, y, w, h) in heads:
+    def process_face(x, y, w, h):
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
         
         # Region of interest (ROI) in the original image
@@ -72,6 +73,9 @@ def liotta_overlay(photo_path, user_id, bot):
 
         # Update the original image with the blended ROI
         image[y:y+h, x:x+w] = roi
+
+    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in heads]
+    wait(futures)
 
     processed_path = f"processed/{user_id}_liotta.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
@@ -97,15 +101,18 @@ def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
     faces = detect_heads(image)
 
-    for (x, y, w, h) in faces:
+    def process_face(x, y, w, h):
         # Extract the face
         face = image[y:y+h, x:x+w]
 
         # Apply pixelation directly to the face
-        pixelated_face = cv2.resize(face, (0, 0), fx=0.03, fy=0.03, interpolation=cv2.INTER_NEAREST)
+        pixelated_face = cv2.resize(face, (0, 0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR, interpolation=cv2.INTER_NEAREST)
 
         # Replace the face in the original image with the pixelated version
         image[y:y+h, x:x+w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
+
+    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in faces]
+    wait(futures)
 
     processed_path = f"processed/{user_id}_{file_id}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
@@ -126,4 +133,5 @@ def main() -> None:
     updater.idle()
 
 if __name__ == '__main__':
+    executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
     main()
