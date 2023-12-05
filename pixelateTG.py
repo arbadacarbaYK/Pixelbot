@@ -44,7 +44,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     context.user_data['photo_path'] = photo_path
     context.user_data['user_id'] = update.message.from_user.id
 
-def liotta_overlay(photo_path, user_id, bot):
+def liotta_def liotta_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
 
@@ -52,9 +52,13 @@ def liotta_overlay(photo_path, user_id, bot):
 
     def process_face(x, y, w, h):
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
-        
+
+        # Adjusting starting position for better alignment
+        overlay_x = max(0, x - int(0.25 * w))
+        overlay_y = max(0, y - int(0.25 * h))
+
         # Region of interest (ROI) in the original image
-        roi = image[y:y+h, x:x+w]
+        roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
 
         # Resize Liotta to match the width and height of the ROI
         liotta_resized = cv2.resize(liotta, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
@@ -72,7 +76,7 @@ def liotta_overlay(photo_path, user_id, bot):
                             mask_inv * roi[:, :, c])
 
         # Update the original image with the blended ROI
-        image[y:y+h, x:x+w] = roi
+        image[overlay_y:overlay_y + h, overlay_x:overlay_x + w] = roi
 
     futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in heads]
     wait(futures)
@@ -81,6 +85,7 @@ def liotta_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
