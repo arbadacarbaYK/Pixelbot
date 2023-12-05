@@ -23,4 +23,5 @@ It will then self-build up all dependencies given in requirements.txt and run th
 To Do
 - catch more faces
 - support more input formats
+- more masks
 
