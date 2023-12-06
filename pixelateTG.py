@@ -106,6 +106,9 @@ def skull_overlay(photo_path, user_id, bot):
         # Resize Skull of Satoshi with the updated resize factor
         skull_resized = cv2.resize(skull, (int(SKULL_RESIZE_FACTOR * w), int(SKULL_RESIZE_FACTOR * h)), interpolation=cv2.INTER_AREA)
 
+        print(f"Original skull size: {skull.shape}")
+        print(f"Resized skull size: {skull_resized.shape}")
+
         alpha_channel = skull_resized[:, :, 3] / 255.0
 
         mask = cv2.resize(alpha_channel, (w, h), interpolation=cv2.INTER_AREA)
@@ -124,6 +127,7 @@ def skull_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
