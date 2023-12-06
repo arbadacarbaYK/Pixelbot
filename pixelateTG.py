@@ -63,7 +63,9 @@ def liotta_overlay(photo_path, user_id, bot):
         roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
 
         # Resize Liotta to match the width and height of the ROI
-        liotta_resized = cv2.resize(liotta, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        new_height_liotta = int(roi.shape[0] * liotta.shape[1] / roi.shape[1])
+        liotta_resized = cv2.resize(liotta, (roi.shape[1], new_height_liotta), interpolation=cv2.INTER_AREA)
+
 
         # Extract alpha channel
         alpha_channel = liotta_resized[:, :, 3] / 255.0
@@ -104,7 +106,8 @@ def skull_overlay(photo_path, user_id, bot):
         roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
 
         # Resize Skull of Satoshi with the updated resize factor
-        skull_resized = cv2.resize(skull, (w, h), interpolation=cv2.INTER_AREA)  # Update the resize logic
+        new_height_skull = int(w * skull.shape[0] / skull.shape[1])
+        skull_resized = cv2.resize(skull, (w, new_height_skull), interpolation=cv2.INTER_AREA)
 
         alpha_channel = skull_resized[:, :, 3] / 255.0
 
