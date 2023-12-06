@@ -36,6 +36,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [InlineKeyboardButton("Pixelate", callback_data='pixelate')],
         [InlineKeyboardButton("Liotta Overlay", callback_data='liotta')],
+        [InlineKeyboardButton("Skull of Satoshi", callback_data='skull_of_satoshi')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Choose an option:', reply_markup=reply_markup)
@@ -86,6 +87,42 @@ def liotta_overlay(photo_path, user_id, bot):
 
     return processed_path
 
+def skull_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    skull = cv2.imread('skullofsatoshi.png', cv2.IMREAD_UNCHANGED)
+
+    heads = detect_heads(image)
+
+    def process_face(x, y, w, h):
+        print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
+
+        # Similar processing logic as in liotta_overlay function
+        overlay_x = max(0, x - int(0.25 * w))
+        overlay_y = max(0, y - int(0.25 * h))
+
+        roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
+
+        skull_resized = cv2.resize(skull, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+
+        alpha_channel = skull_resized[:, :, 3] / 255.0
+
+        mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        mask_inv = 1.0 - mask
+
+        for c in range(0, 3):
+            roi[:, :, c] = (mask * skull_resized[:, :, c] +
+                            mask_inv * roi[:, :, c])
+
+        image[overlay_y:overlay_y + h, overlay_x:overlay_x + w] = roi
+
+    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in heads]
+    wait(futures)
+
+    processed_path = f"processed/{user_id}_skull_of_satoshi.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
@@ -98,6 +135,8 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         processed_path = process_image(photo_path, user_id, 'pixelated', context.bot)
     elif option == 'liotta':
         processed_path = liotta_overlay(photo_path, user_id, context.bot)
+    elif option == 'skull_of_satoshi':
+        processed_path = skull_overlay(photo_path, user_id, context.bot)
 
     context.bot.send_photo(chat_id=update.callback_query.message.chat_id, photo=open(processed_path, 'rb'))
 
