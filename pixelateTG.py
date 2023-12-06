@@ -63,6 +63,10 @@ def liotta_overlay(photo_path, user_id, bot):
 
         # Resize Liotta to match the width and height of the ROI
         liotta_resized = cv2.resize(liotta, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        skull_resized_width = int(1.2 * liotta_resized.shape[1])  # 20% bigger width
+        skull_resized_height = int(1.2 * liotta_resized.shape[0])  # 20% bigger height
+        skull_resized = cv2.resize(skull, (skull_resized_width, skull_resized_height), interpolation=cv2.INTER_AREA)
+
 
         # Extract alpha channel
         alpha_channel = liotta_resized[:, :, 3] / 255.0
