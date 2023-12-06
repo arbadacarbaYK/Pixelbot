@@ -9,7 +9,7 @@ TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 5
 PIXELATION_FACTOR = 0.03
 LIOTTA_RESIZE_FACTOR = 1.5
-SKULL_RESIZE_FACTOR = 1.6  # Adjust the resize factor for Skull of Satoshi
+SKULL_RESIZE_FACTOR = 1.9  # Adjust the resize factor for Skull of Satoshi
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
