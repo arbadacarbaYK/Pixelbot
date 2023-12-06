@@ -1,104 +1,141 @@
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
-import cv2
-import numpy as np
-from io import BytesIO
 import os
+import cv2
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler, CallbackQueryHandler
+from concurrent.futures import ThreadPoolExecutor, wait
+from mtcnn.mtcnn import MTCNN
 
-def detect_eyes(image):
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
+MAX_THREADS = 5
+PIXELATION_FACTOR = 0.03
+LIOTTA_RESIZE_FACTOR = 1.5
 
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
 
-    eyes = []
-    for (x, y, w, h) in faces:
-        roi_gray = gray[y:y + h, x:x + w]
-        eyes_data = eye_cascade.detectMultiScale(roi_gray)
-        eyes.extend([{"box": (ex + x, ey + y, ew, eh)} for (ex, ey, ew, eh) in eyes_data])
+def detect_heads(image):
+    mtcnn = MTCNN()
+    faces = mtcnn.detect_faces(image)
+    
+    # Extracting bounding boxes from the faces
+    head_boxes = [(face['box'][0], face['box'][1], int(LIOTTA_RESIZE_FACTOR * face['box'][2]), int(LIOTTA_RESIZE_FACTOR * face['box'][3])) for face in faces]
+    
+    return head_boxes
 
-    return eyes
+def pixelate_faces(update: Update, context: CallbackContext) -> None:
+    file_id = update.message.photo[-1].file_id
+    file = context.bot.get_file(file_id)
+    
+    # Extract the file name from the file path
+    file_name = file.file_path.split('/')[-1]
+    
+    # Construct the local file path
+    photo_path = f"downloads/{file_name}"
+    file.download(photo_path)
 
-def replace_eyes(photo_path, user_id, bot):
+    keyboard = [
+        [InlineKeyboardButton("Pixelate", callback_data='pixelate')],
+        [InlineKeyboardButton("Liotta Overlay", callback_data='liotta')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text('Choose an option:', reply_markup=reply_markup)
+
+    # Save photo_path and user_id in context for later use in button callback
+    context.user_data['photo_path'] = photo_path
+    context.user_data['user_id'] = update.message.from_user.id
+
+def liotta_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
-    eyes = detect_eyes(image)
+    liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
 
-    for eye in eyes:
-        eye_x, eye_y, eye_w, eye_h = eye["box"]
-        print(f"Eye detected at ({eye_x}, {eye_y}), width: {eye_w}, height: {eye_h}")
+    heads = detect_heads(image)
 
-        # Replace the following line with your code to add the lasereye
-        # Example: cv2.rectangle(image, (eye_x, eye_y), (eye_x + eye_w, eye_y + eye_h), (255, 0, 0), 2)
+    def process_face(x, y, w, h):
+        print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
 
-    processed_path = f"processed/{user_id}_lasereyes.jpg"
-    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        # Adjusting starting position for better alignment
+        overlay_x = max(0, x - int(0.25 * w))
+        overlay_y = max(0, y - int(0.25 * h))
 
-    return processed_path
+        # Region of interest (ROI) in the original image
+        roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
 
-def process_image(photo_path, user_id, mode, bot):
-    if mode == "pixelated":
-        processed_path = pixelate(photo_path, user_id, bot)
-    elif mode == "lasereyes":
-        processed_path = replace_eyes(photo_path, user_id, bot)
-    else:
-        processed_path = photo_path
+        # Resize Liotta to match the width and height of the ROI
+        liotta_resized = cv2.resize(liotta, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
 
-    return processed_path
+        # Extract alpha channel
+        alpha_channel = liotta_resized[:, :, 3] / 255.0
 
-def pixelate(photo_path, user_id, bot):
-    # Placeholder function for pixelation, replace with your code
-    # Example: cv2.rectangle(image, (x, y), (x + w, y + h), (255, 0, 0), 2)
-    # You can use OpenCV functions to pixelate the detected faces
+        # Resize mask arrays to match the shape of roi[:, :, c]
+        mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        mask_inv = 1.0 - mask
 
-    processed_path = f"processed/{user_id}_pixelated.jpg"
+        # Blend Liotta and ROI using the resized mask
+        for c in range(0, 3):
+            roi[:, :, c] = (mask * liotta_resized[:, :, c] +
+                            mask_inv * roi[:, :, c])
+
+        # Update the original image with the blended ROI
+        image[overlay_y:overlay_y + h, overlay_x:overlay_x + w] = roi
+
+    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in heads]
+    wait(futures)
+
+    processed_path = f"processed/{user_id}_liotta.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
 
 def button_callback(update: Update, context: CallbackContext) -> None:
-    chat_id = update.message.chat_id
-    user_id = update.message.from_user.id
+    query = update.callback_query
+    query.answer()
 
-    if "photo" in update.message.effective_attachment:
-        photo = update.message.effective_attachment["photo"][-1]
-        file_id = photo.file_id
-        file = bot.get_file(file_id)
-        photo_path = f"downloads/{user_id}_input.jpg"
-        file.download(photo_path)
+    option = query.data
+    photo_path = context.user_data['photo_path']
+    user_id = context.user_data['user_id']
 
-        context.user_data["photo_path"] = photo_path
+    if option == 'pixelate':
+        processed_path = process_image(photo_path, user_id, 'pixelated', context.bot)
+    elif option == 'liotta':
+        processed_path = liotta_overlay(photo_path, user_id, context.bot)
 
-        keyboard = [["Pixelate", "Laser Eyes"]]
-        reply_markup = {"keyboard": keyboard, "one_time_keyboard": True}
-        update.message.reply_text("Choose an option:", reply_markup=reply_markup)
-    else:
-        update.message.reply_text("Please send a photo.")
+    context.bot.send_photo(chat_id=update.callback_query.message.chat_id, photo=open(processed_path, 'rb'))
 
-def handle_text(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    mode = update.message.text.lower()
+def process_image(photo_path, user_id, file_id, bot):
+    image = cv2.imread(photo_path)
+    faces = detect_heads(image)
 
-    if "photo_path" in context.user_data:
-        photo_path = context.user_data["photo_path"]
-        processed_path = process_image(photo_path, user_id, mode, context.bot)
-        context.user_data.clear()
-        with open(processed_path, "rb") as photo:
-            update.message.reply_photo(photo)
-        os.remove(processed_path)
-    else:
-        update.message.reply_text("Please start with sending a photo.")
+    def process_face(x, y, w, h):
+        # Extract the face
+        face = image[y:y+h, x:x+w]
+
+        # Apply pixelation directly to the face
+        pixelated_face = cv2.resize(face, (0, 0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR, interpolation=cv2.INTER_NEAREST)
+
+        # Replace the face in the original image with the pixelated version
+        image[y:y+h, x:x+w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
+
+    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in faces]
+    wait(futures)
+
+    processed_path = f"processed/{user_id}_{file_id}.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
 
 def main() -> None:
-    TOKEN = "your_bot_token"
-    updater = Updater(TOKEN)
+    updater = Updater(TOKEN, use_context=True)
+
     dp = updater.dispatcher
 
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
-    dp.add_handler(CommandHandler("start", button_callback))
+    dp.add_handler(MessageHandler(Filters.photo, pixelate_faces))
+    dp.add_handler(CommandHandler('start', start))
+    dp.add_handler(CallbackQueryHandler(button_callback))
 
     updater.start_polling()
+
     updater.idle()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
     main()
