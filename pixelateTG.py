@@ -52,21 +52,17 @@ def liotta_overlay(photo_path, user_id, bot):
         x, y, w, h = face['box']
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
 
-        # Adjusting starting position for better alignment
-        overlay_x = max(0, x - int(0.25 * w))
-        overlay_y = max(0, y - int(0.25 * h))
-
         # Region of interest (ROI) in the original image
-        roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
+        roi = image[y:y + h, x:x + w]
 
-        # Resize Liotta to match the width and height of the ROI
-        liotta_resized = cv2.resize(liotta, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        # Resize Liotta to match the width and height of the original bounding box
+        liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
 
         # Extract alpha channel
         alpha_channel = liotta_resized[:, :, 3] / 255.0
 
         # Resize mask arrays to match the shape of roi[:, :, c]
-        mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        mask = cv2.resize(alpha_channel, (w, h), interpolation=cv2.INTER_AREA)
         mask_inv = 1.0 - mask
 
         # Blend Liotta and ROI using the resized mask
@@ -75,7 +71,7 @@ def liotta_overlay(photo_path, user_id, bot):
                             mask_inv * roi[:, :, c])
 
         # Update the original image with the blended ROI
-        image[overlay_y:overlay_y + h, overlay_x:overlay_x + w] = roi
+        image[y:y + h, x:x + w] = roi
 
     for face in faces:
         process_face(face)
@@ -92,38 +88,44 @@ def replace_eyes(photo_path, user_id, bot):
     faces = detect_faces(image)
 
     def process_eye(eye):
-        eye_x, eye_y, eye_w, eye_h = eye['box']
-        print(f"Processing eye at ({eye_x}, {eye_y}), width: {eye_w}, height: {eye_h}")
+        if isinstance(eye, dict) and 'box' in eye:  # Check if the output contains a 'box' key
+            box = eye['box']
+            print(f"Processing eye at ({box[0]}, {box[1]}), width: {box[2]}, height: {box[3]}")
 
-        # Adjusting starting position for better alignment
-        overlay_x = max(0, eye_x - int(0.25 * eye_w))
-        overlay_y = max(0, eye_y - int(0.25 * eye_h))
+            # Adjusting starting position for better alignment
+            overlay_x = max(0, box[0] - int(0.25 * box[2]))
+            overlay_y = max(0, box[1] - int(0.25 * box[3]))
 
-        # Region of interest (ROI) in the original image
-        roi = image[overlay_y:overlay_y + eye_h, overlay_x:overlay_x + eye_w]
+            # Region of interest (ROI) in the original image
+            roi = image[overlay_y:overlay_y + box[3], overlay_x:overlay_x + box[2]]
 
-        # Resize lasereye to match the width and height of the ROI
-        lasereye_resized = cv2.resize(lasereye, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+            # Resize lasereye to match the width and height of the ROI
+            lasereye_resized = cv2.resize(lasereye, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
 
-        # Extract alpha channel
-        alpha_channel = lasereye_resized[:, :, 3] / 255.0
+            # Extract alpha channel
+            alpha_channel = lasereye_resized[:, :, 3] / 255.0
 
-        # Resize mask arrays to match the shape of roi[:, :, c]
-        mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
-        mask_inv = 1.0 - mask
+            # Resize mask arrays to match the shape of roi[:, :, c]
+            mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+            mask_inv = 1.0 - mask
 
-        # Blend lasereye and ROI using the resized mask
-        for c in range(0, 3):
-            roi[:, :, c] = (mask * lasereye_resized[:, :, c] +
-                            mask_inv * roi[:, :, c])
+            # Blend lasereye and ROI using the resized mask
+            for c in range(0, 3):
+                roi[:, :, c] = (mask * lasereye_resized[:, :, c] +
+                                mask_inv * roi[:, :, c])
 
-        # Update the original image with the blended ROI
-        image[overlay_y:overlay_y + eye_h, overlay_x:overlay_x + eye_w] = roi
+            # Update the original image with the blended ROI
+            image[overlay_y:overlay_y + box[3], overlay_x:overlay_x + box[2]] = roi
+        else:
+            print("Invalid eye structure. Skipping.")
 
     for face in faces:
-        eyes = face['keypoints']
-        for eye in eyes.values():
-            process_eye(eye)
+        if isinstance(face, dict) and 'keypoints' in face:  # Check if the output contains a 'keypoints' key
+            keypoints = face['keypoints']
+            for eye in keypoints.values():
+                process_eye(eye)
+        else:
+            print("Invalid face structure. Skipping.")
 
     processed_path = f"processed/{user_id}_lasereyes.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
@@ -151,19 +153,18 @@ def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
     faces = detect_faces(image)
 
-    def process_face(face):
+    def process_face(x, y, w, h):
         # Extract the face
-        x, y, w, h = face['box']
-        face_roi = image[y:y+h, x:x+w]
+        face = image[y:y + h, x:x + w]
 
         # Apply pixelation directly to the face
-        pixelated_face = cv2.resize(face_roi, (0, 0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR, interpolation=cv2.INTER_NEAREST)
+        pixelated_face = cv2.resize(face, (0, 0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR, interpolation=cv2.INTER_NEAREST)
 
         # Replace the face in the original image with the pixelated version
-        image[y:y+h, x:x+w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
+        image[y:y + h, x:x + w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
 
-    for face in faces:
-        process_face(face)
+    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in faces]
+    wait(futures)
 
     processed_path = f"processed/{user_id}_{file_id}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
