@@ -9,7 +9,7 @@ TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 5
 PIXELATION_FACTOR = 0.03
 LIOTTA_RESIZE_FACTOR = 1.5
-SKULL_RESIZE_FACTOR = 1.6  # Adjust the resize factor for Skull of Satoshi
+SKULL_RESIZE_FACTOR = 1.9  # Adjust the resize factor for Skull of Satoshi
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
@@ -55,24 +55,29 @@ def liotta_overlay(photo_path, user_id, bot):
     def process_face(x, y, w, h):
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
 
-        # Similar processing logic as in liotta_overlay function
+        # Adjusting starting position for better alignment
         overlay_x = max(0, x - int(0.25 * w))
         overlay_y = max(0, y - int(0.25 * h))
 
+        # Region of interest (ROI) in the original image
         roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
 
         # Resize Liotta to match the width and height of the ROI
-        liotta_resized = cv2.resize(liotta, (w, h), interpolation=cv2.INTER_AREA)
+        liotta_resized = cv2.resize(liotta, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
 
+        # Extract alpha channel
         alpha_channel = liotta_resized[:, :, 3] / 255.0
 
-        mask = cv2.resize(alpha_channel, (w, h), interpolation=cv2.INTER_AREA)
+        # Resize mask arrays to match the shape of roi[:, :, c]
+        mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
         mask_inv = 1.0 - mask
 
+        # Blend Liotta and ROI using the resized mask
         for c in range(0, 3):
             roi[:, :, c] = (mask * liotta_resized[:, :, c] +
                             mask_inv * roi[:, :, c])
 
+        # Update the original image with the blended ROI
         image[overlay_y:overlay_y + h, overlay_x:overlay_x + w] = roi
 
     futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in heads]
@@ -98,14 +103,12 @@ def skull_overlay(photo_path, user_id, bot):
 
         roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
 
-        # Resize Skull of Satoshi with aspect ratio maintained
-        aspect_ratio = skull.shape[1] / skull.shape[0]
-        new_height = int(w / aspect_ratio)
-        skull_resized = cv2.resize(skull, (w, new_height), interpolation=cv2.INTER_AREA)
+        # Resize Skull of Satoshi with the updated resize factor
+        skull_resized = cv2.resize(skull, (w, h), interpolation=cv2.INTER_AREA)
 
         alpha_channel = skull_resized[:, :, 3] / 255.0
 
-        mask = cv2.resize(alpha_channel, (w, new_height), interpolation=cv2.INTER_AREA)
+        mask = cv2.resize(alpha_channel, (w, h), interpolation=cv2.INTER_AREA)
         mask_inv = 1.0 - mask
 
         for c in range(0, 3):
