@@ -96,16 +96,28 @@ def replace_eyes(photo_path, user_id, bot):
         if 'box' in eye:
             eye_x, eye_y, eye_w, eye_h = eye['box']
             print(f"Eye detected at ({eye_x}, {eye_y}), width: {eye_w}, height: {eye_h}")
-            eye_image = image[eye_y:eye_y + eye_h, eye_x:eye_x + eye_w]
-            print(f"Eye image shape: {eye_image.shape}")
             
-            lasereye_resized = cv2.resize(lasereye, (eye_image.shape[1], eye_image.shape[0]), interpolation=cv2.INTER_AREA)
-            alpha_channel = lasereye_resized[:, :, 3] / 255.0
-            mask = cv2.resize(alpha_channel, (eye_image.shape[1], eye_image.shape[0]), interpolation=cv2.INTER_AREA)
-            mask_inv = 1.0 - mask
-            for c in range(0, 3):
-                eye_image[:, :, c] = (mask * lasereye_resized[:, :, c] + mask_inv * eye_image[:, :, c])
-            image[eye_y:eye_y + eye_h, eye_x:eye_x + eye_w] = eye_image
+            # Check if the detected eye is within reasonable bounds
+            if eye_w > 0 and eye_h > 0:
+                eye_image = image[eye_y:eye_y + eye_h, eye_x:eye_x + eye_w]
+                
+                # Resize the lasereye image to match the size of the detected eye
+                lasereye_resized = cv2.resize(lasereye, (eye_w, eye_h), interpolation=cv2.INTER_AREA)
+                
+                # Create a binary mask from the alpha channel of lasereye
+                alpha_channel = lasereye_resized[:, :, 3] / 255.0
+                mask = cv2.resize(alpha_channel, (eye_w, eye_h), interpolation=cv2.INTER_AREA)
+                mask_inv = 1.0 - mask
+                
+                # Composite the lasereye onto the original image
+                for c in range(0, 3):
+                    eye_image[:, :, c] = (mask * lasereye_resized[:, :, c] + mask_inv * eye_image[:, :, c])
+                
+                # Update the original image with the modified eye
+                image[eye_y:eye_y + eye_h, eye_x:eye_x + eye_w] = eye_image
+                print("Eye replaced successfully.")
+            else:
+                print("Invalid eye dimensions. Skipping.")
         else:
             print("Invalid eye structure. Skipping.")
 
@@ -116,6 +128,7 @@ def replace_eyes(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
