@@ -95,7 +95,10 @@ def replace_eyes(photo_path, user_id, bot):
     def process_eye(eye):
         if 'box' in eye:
             eye_x, eye_y, eye_w, eye_h = eye['box']
+            print(f"Eye detected at ({eye_x}, {eye_y}), width: {eye_w}, height: {eye_h}")
             eye_image = image[eye_y:eye_y + eye_h, eye_x:eye_x + eye_w]
+            print(f"Eye image shape: {eye_image.shape}")
+            
             lasereye_resized = cv2.resize(lasereye, (eye_image.shape[1], eye_image.shape[0]), interpolation=cv2.INTER_AREA)
             alpha_channel = lasereye_resized[:, :, 3] / 255.0
             mask = cv2.resize(alpha_channel, (eye_image.shape[1], eye_image.shape[0]), interpolation=cv2.INTER_AREA)
