@@ -153,17 +153,21 @@ def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
     faces = detect_faces(image)
 
-    def process_face(x, y, w, h):
-        # Extract the face
-        face = image[y:y + h, x:x + w]
+    def process_face(face):
+        if 'box' in face:  # Check if the output contains a 'box' key
+            x, y, w, h = face['box']
+            # Extract the face
+            face_image = image[y:y + h, x:x + w]
 
-        # Apply pixelation directly to the face
-        pixelated_face = cv2.resize(face, (0, 0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR, interpolation=cv2.INTER_NEAREST)
+            # Apply pixelation directly to the face
+            pixelated_face = cv2.resize(face_image, (0, 0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR, interpolation=cv2.INTER_NEAREST)
 
-        # Replace the face in the original image with the pixelated version
-        image[y:y + h, x:x + w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
+            # Replace the face in the original image with the pixelated version
+            image[y:y + h, x:x + w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
+        else:
+            print("Invalid face structure. Skipping.")
 
-    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in faces]
+    futures = [executor.submit(process_face, face) for face in faces]
     wait(futures)
 
     processed_path = f"processed/{user_id}_{file_id}.jpg"
