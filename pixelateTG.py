@@ -92,10 +92,42 @@ def skull_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     skull = cv2.imread('skullofsatoshi.png', cv2.IMREAD_UNCHANGED)
 
+    if skull is None:
+        print("Error: Unable to read the skull image.")
+        return "error.jpg"  # Return a default path in case of an error
+
     # Resize Skull of Satoshi with the updated resize factor
     skull_resized = cv2.resize(skull, (int(SKULL_RESIZE_FACTOR * skull.shape[1]), int(SKULL_RESIZE_FACTOR * skull.shape[0])), interpolation=cv2.INTER_AREA)
 
+    if skull_resized is None:
+        print("Error: Unable to resize the skull image.")
+        return "error.jpg"  # Return a default path in case of an error
+
+    # Save the resized skull image for debugging purposes
     cv2.imwrite(f"skull_resized_{user_id}.png", skull_resized)
+
+    # Now, proceed with overlay logic as before
+    heads = detect_heads(image)
+
+    for (x, y, w, h) in heads:
+        overlay_x = max(0, x - int(0.25 * w))
+        overlay_y = max(0, y - int(0.25 * h))
+        roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
+
+        # Resize the skull_resized to match the width and height of the ROI
+        skull_resized_roi = cv2.resize(skull_resized, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+
+        alpha_channel = skull_resized_roi[:, :, 3] / 255.0
+        mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+
+        # Rest of the overlay logic remains unchanged
+
+    # Save the processed image and return its path
+    processed_path = f"processed/{user_id}_skull_of_satoshi.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
