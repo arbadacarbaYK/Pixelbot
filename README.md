@@ -29,4 +29,4 @@ To Do
 - more masks
 
 
-If you like this bot tip me at arbadacarba@ln.tips
+If you like this bot ⚡️tip me [here](https://legend.lnbits.com/lnurlp/link/Fqq872)
