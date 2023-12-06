@@ -6,7 +6,7 @@ https://t.me/Pixelatebot
 ![photo_2023-12-06_18-57-07](https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/bbce7e38-0205-4670-833d-25b0df51db79)
 ![photo_2023-12-06_20-26-15](https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/e5a2917f-67e4-4ae5-bf16-c044c43387ad)
 
-Install
+# Install
 - Fork
 - Set up a repo secret in your repo under settings -> secrets -> actions -> TELEGRAM_BOT_TOKEN -> [yourtoken]
 - go to Actions and run
@@ -28,3 +28,5 @@ To Do
 - support more input formats
 - more masks
 
+
+If you like this bot tip me at arbadacarba@ln.tips
