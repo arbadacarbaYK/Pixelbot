@@ -104,11 +104,11 @@ def skull_overlay(photo_path, user_id, bot):
         roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
 
         # Resize Skull of Satoshi with the updated resize factor
-        skull_resized = cv2.resize(skull, (int(SKULL_RESIZE_FACTOR * roi.shape[1])), interpolation=cv2.INTER_AREA)
+        skull_resized = cv2.resize(skull, (int(SKULL_RESIZE_FACTOR * w)), interpolation=cv2.INTER_AREA)
 
         alpha_channel = skull_resized[:, :, 3] / 255.0
 
-        mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        mask = cv2.resize(alpha_channel, (w, h), interpolation=cv2.INTER_AREA)
         mask_inv = 1.0 - mask
 
         for c in range(0, 3):
