@@ -9,18 +9,15 @@ TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 5
 PIXELATION_FACTOR = 0.03
 LIOTTA_RESIZE_FACTOR = 1.5
+LASER_EYE_PATH = 'lasereye.png'
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
 
-def detect_heads(image):
+def detect_faces(image):
     mtcnn = MTCNN()
     faces = mtcnn.detect_faces(image)
-    
-    # Extracting bounding boxes from the faces
-    head_boxes = [(face['box'][0], face['box'][1], int(LIOTTA_RESIZE_FACTOR * face['box'][2]), int(LIOTTA_RESIZE_FACTOR * face['box'][3])) for face in faces]
-    
-    return head_boxes
+    return faces
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     file_id = update.message.photo[-1].file_id
@@ -36,6 +33,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [InlineKeyboardButton("Pixelate", callback_data='pixelate')],
         [InlineKeyboardButton("Liotta Overlay", callback_data='liotta')],
+        [InlineKeyboardButton("Laser Eyes", callback_data='lasereyes')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Choose an option:', reply_markup=reply_markup)
@@ -48,9 +46,10 @@ def liotta_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
 
-    heads = detect_heads(image)
+    faces = detect_faces(image)
 
-    def process_face(x, y, w, h):
+    def process_face(face):
+        x, y, w, h = face['box']
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
 
         # Adjusting starting position for better alignment
@@ -78,10 +77,55 @@ def liotta_overlay(photo_path, user_id, bot):
         # Update the original image with the blended ROI
         image[overlay_y:overlay_y + h, overlay_x:overlay_x + w] = roi
 
-    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in heads]
-    wait(futures)
+    for face in faces:
+        process_face(face)
 
     processed_path = f"processed/{user_id}_liotta.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+def replace_eyes(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    lasereye = cv2.imread(LASER_EYE_PATH, cv2.IMREAD_UNCHANGED)
+
+    faces = detect_faces(image)
+
+    def process_eye(eye):
+        eye_x, eye_y, eye_w, eye_h = eye['box']
+        print(f"Processing eye at ({eye_x}, {eye_y}), width: {eye_w}, height: {eye_h}")
+
+        # Adjusting starting position for better alignment
+        overlay_x = max(0, eye_x - int(0.25 * eye_w))
+        overlay_y = max(0, eye_y - int(0.25 * eye_h))
+
+        # Region of interest (ROI) in the original image
+        roi = image[overlay_y:overlay_y + eye_h, overlay_x:overlay_x + eye_w]
+
+        # Resize lasereye to match the width and height of the ROI
+        lasereye_resized = cv2.resize(lasereye, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+
+        # Extract alpha channel
+        alpha_channel = lasereye_resized[:, :, 3] / 255.0
+
+        # Resize mask arrays to match the shape of roi[:, :, c]
+        mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        mask_inv = 1.0 - mask
+
+        # Blend lasereye and ROI using the resized mask
+        for c in range(0, 3):
+            roi[:, :, c] = (mask * lasereye_resized[:, :, c] +
+                            mask_inv * roi[:, :, c])
+
+        # Update the original image with the blended ROI
+        image[overlay_y:overlay_y + eye_h, overlay_x:overlay_x + eye_w] = roi
+
+    for face in faces:
+        eyes = face['keypoints']
+        for eye in eyes.values():
+            process_eye(eye)
+
+    processed_path = f"processed/{user_id}_lasereyes.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
@@ -98,25 +142,28 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         processed_path = process_image(photo_path, user_id, 'pixelated', context.bot)
     elif option == 'liotta':
         processed_path = liotta_overlay(photo_path, user_id, context.bot)
+    elif option == 'lasereyes':
+        processed_path = replace_eyes(photo_path, user_id, context.bot)
 
     context.bot.send_photo(chat_id=update.callback_query.message.chat_id, photo=open(processed_path, 'rb'))
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
-    faces = detect_heads(image)
+    faces = detect_faces(image)
 
-    def process_face(x, y, w, h):
+    def process_face(face):
         # Extract the face
-        face = image[y:y+h, x:x+w]
+        x, y, w, h = face['box']
+        face_roi = image[y:y+h, x:x+w]
 
         # Apply pixelation directly to the face
-        pixelated_face = cv2.resize(face, (0, 0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR, interpolation=cv2.INTER_NEAREST)
+        pixelated_face = cv2.resize(face_roi, (0, 0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR, interpolation=cv2.INTER_NEAREST)
 
         # Replace the face in the original image with the pixelated version
         image[y:y+h, x:x+w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
 
-    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in faces]
-    wait(futures)
+    for face in faces:
+        process_face(face)
 
     processed_path = f"processed/{user_id}_{file_id}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
