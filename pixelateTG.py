@@ -9,6 +9,7 @@ TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 5
 PIXELATION_FACTOR = 0.03
 LIOTTA_RESIZE_FACTOR = 1.5
+SKULL_RESIZE_FACTOR = 1.2  # Adjust the resize factor for Skull of Satoshi
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
@@ -63,10 +64,6 @@ def liotta_overlay(photo_path, user_id, bot):
 
         # Resize Liotta to match the width and height of the ROI
         liotta_resized = cv2.resize(liotta, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
-        skull_resized_width = int(1.2 * liotta_resized.shape[1])  # 20% bigger width
-        skull_resized_height = int(1.2 * liotta_resized.shape[0])  # 20% bigger height
-        skull_resized = cv2.resize(skull, (skull_resized_width, skull_resized_height), interpolation=cv2.INTER_AREA)
-
 
         # Extract alpha channel
         alpha_channel = liotta_resized[:, :, 3] / 255.0
@@ -106,7 +103,10 @@ def skull_overlay(photo_path, user_id, bot):
 
         roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
 
-        skull_resized = cv2.resize(skull, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        # Resize Skull of Satoshi with the adjusted resize factor
+        skull_resized_width = int(SKULL_RESIZE_FACTOR * roi.shape[1])
+        skull_resized_height = int(SKULL_RESIZE_FACTOR * roi.shape[0])
+        skull_resized = cv2.resize(skull, (skull_resized_width, skull_resized_height), interpolation=cv2.INTER_AREA)
 
         alpha_channel = skull_resized[:, :, 3] / 255.0
 
@@ -131,18 +131,23 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
 
-    option = query.data
-    photo_path = context.user_data['photo_path']
-    user_id = context.user_data['user_id']
+    # Check if 'photo_path' key is present in context.user_data
+    if 'photo_path' in context.user_data:
+        option = query.data
+        photo_path = context.user_data['photo_path']
+        user_id = context.user_data['user_id']
 
-    if option == 'pixelate':
-        processed_path = process_image(photo_path, user_id, 'pixelated', context.bot)
-    elif option == 'liotta':
-        processed_path = liotta_overlay(photo_path, user_id, context.bot)
-    elif option == 'skull_of_satoshi':
-        processed_path = skull_overlay(photo_path, user_id, context.bot)
+        if option == 'pixelate':
+            processed_path = process_image(photo_path, user_id, 'pixelated', context.bot)
+        elif option == 'liotta':
+            processed_path = liotta_overlay(photo_path, user_id, context.bot)
+        elif option == 'skull_of_satoshi':
+            processed_path = skull_overlay(photo_path, user_id, context.bot)
 
-    context.bot.send_photo(chat_id=update.callback_query.message.chat_id, photo=open(processed_path, 'rb'))
+        context.bot.send_photo(chat_id=update.callback_query.message.chat_id, photo=open(processed_path, 'rb'))
+    else:
+        # Handle the case when 'photo_path' key is not present
+        update.message.reply_text("Error: 'photo_path' not found in user data.")
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
