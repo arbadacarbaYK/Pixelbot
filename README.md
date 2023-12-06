@@ -1,11 +1,14 @@
 # Pixelbot
-A Telegram bot that replaces faces with pixels or liotta faces
-and runs via github actions.
+A Telegram bot that replaces faces with pixels, skull of satoshi or liotta faces and runs via github actions.
 https://t.me/Pixelatebot
+
+![photo_2023-12-06_18-57-09](https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/1046add6-fab1-4139-bf93-171c9593dfea)
+![photo_2023-12-06_18-57-07](https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/bbce7e38-0205-4670-833d-25b0df51db79)
+![photo_2023-12-06_20-26-15](https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/e5a2917f-67e4-4ae5-bf16-c044c43387ad)
 
 Install
 - Fork
-- Set up a repo secret in the repo under settings -> secrets -> actions -> TELEGRAM_BOT_TOKEN -> yourtoken
+- Set up a repo secret in your repo under settings -> secrets -> actions -> TELEGRAM_BOT_TOKEN -> [yourtoken]
 - go to Actions and run
 
 Every change in code will trigger a new action to run. Go to actions before updating your code and cancel the running thread.
