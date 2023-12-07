@@ -64,8 +64,8 @@ def liotta_overlay(photo_path, user_id, bot):
         center_y = y + h // 2
 
         # Adjusting starting position based on the center for better alignment
-        overlay_x = max(0, center_x - int(0.5 * LIOTTA_RESIZE_FACTOR * w))
-        overlay_y = max(0, center_y - int(0.5 * LIOTTA_RESIZE_FACTOR * h))
+        overlay_x = int(center_x - 0.5 * LIOTTA_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * LIOTTA_RESIZE_FACTOR * h)
 
         # Resize Liotta to match the width and height of the face
         new_width = int(LIOTTA_RESIZE_FACTOR * w)
@@ -103,8 +103,8 @@ def skull_overlay(photo_path, user_id, bot):
         center_y = y + h // 2
 
         # Adjusting starting position based on the center for better alignment
-        overlay_x = max(0, center_x - int(0.5 * SKULL_RESIZE_FACTOR * w))
-        overlay_y = max(0, center_y - int(0.5 * SKULL_RESIZE_FACTOR * h))
+        overlay_x = int(center_x - 0.5 * SKULL_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * SKULL_RESIZE_FACTOR * h)
 
         # Resize Skull of Satoshi to match the width and height of the face
         new_width = int(SKULL_RESIZE_FACTOR * w)
@@ -123,7 +123,6 @@ def skull_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
