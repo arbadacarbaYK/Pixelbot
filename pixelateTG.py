@@ -46,6 +46,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     context.user_data['photo_path'] = photo_path
     context.user_data['user_id'] = update.message.from_user.id
 
+# Inside liotta_overlay function
 def liotta_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
@@ -55,6 +56,9 @@ def liotta_overlay(photo_path, user_id, bot):
     def process_face(x, y, w, h):
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
 
+        # Calculate aspect ratio of the original liotta image
+        original_aspect_ratio = liotta.shape[1] / liotta.shape[0]
+
         # Adjusting starting position for better alignment
         overlay_x = max(0, x - int(0.25 * w))
         overlay_y = max(0, y - int(0.25 * h))
@@ -62,14 +66,18 @@ def liotta_overlay(photo_path, user_id, bot):
         # Region of interest (ROI) in the original image
         roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
 
+        # Calculate the new width and height while maintaining aspect ratio
+        new_width = int(LIOTTA_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+
         # Resize Liotta to match the width and height of the ROI
-        liotta_resized = cv2.resize(liotta, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        liotta_resized = cv2.resize(liotta, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
         # Extract alpha channel
         alpha_channel = liotta_resized[:, :, 3] / 255.0
 
         # Resize mask arrays to match the shape of roi[:, :, c]
-        mask = cv2.resize(alpha_channel, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_AREA)
+        mask = cv2.resize(alpha_channel, (new_width, new_height), interpolation=cv2.INTER_AREA)
         mask_inv = 1.0 - mask
 
         # Blend Liotta and ROI using the resized mask
@@ -88,6 +96,7 @@ def liotta_overlay(photo_path, user_id, bot):
 
     return processed_path
 
+# Inside skull_overlay function
 def skull_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     skull = cv2.imread('skullofsatoshi.png', cv2.IMREAD_UNCHANGED)
@@ -97,18 +106,25 @@ def skull_overlay(photo_path, user_id, bot):
     def process_face(x, y, w, h):
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
 
+        # Calculate aspect ratio of the original skull image
+        original_aspect_ratio = skull.shape[1] / skull.shape[0]
+
         # Similar processing logic as in liotta_overlay function
         overlay_x = max(0, x - int(0.25 * w))
         overlay_y = max(0, y - int(0.25 * h))
 
         roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
 
+        # Calculate the new width and height while maintaining aspect ratio
+        new_width = int(SKULL_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+
         # Resize Skull of Satoshi with the updated resize factor
-        skull_resized = cv2.resize(skull, (w, h), interpolation=cv2.INTER_AREA)
+        skull_resized = cv2.resize(skull, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
         alpha_channel = skull_resized[:, :, 3] / 255.0
 
-        mask = cv2.resize(alpha_channel, (w, h), interpolation=cv2.INTER_AREA)
+        mask = cv2.resize(alpha_channel, (new_width, new_height), interpolation=cv2.INTER_AREA)
         mask_inv = 1.0 - mask
 
         for c in range(0, 3):
