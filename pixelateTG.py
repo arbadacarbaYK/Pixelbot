@@ -53,7 +53,7 @@ def liotta_overlay(photo_path, user_id, bot):
 
     heads = detect_heads(image)
 
-    def process_face(x, y, w, h):
+    for (x, y, w, h) in heads:
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
 
         # Calculate aspect ratio of the original liotta image
@@ -63,33 +63,18 @@ def liotta_overlay(photo_path, user_id, bot):
         overlay_x = max(0, x - int(0.25 * w))
         overlay_y = max(0, y - int(0.25 * h))
 
-        # Region of interest (ROI) in the original image
-        roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
-
-        # Calculate the new width and height while maintaining aspect ratio
+        # Resize Liotta to match the width and height of the face
         new_width = int(LIOTTA_RESIZE_FACTOR * w)
         new_height = int(new_width / original_aspect_ratio)
 
-        # Resize Liotta to match the width and height of the ROI
         liotta_resized = cv2.resize(liotta, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
-        # Extract alpha channel
-        alpha_channel = liotta_resized[:, :, 3] / 255.0
-
-        # Resize mask arrays to match the shape of roi[:, :, c]
-        mask = cv2.resize(alpha_channel, (new_width, new_height), interpolation=cv2.INTER_AREA)
-        mask_inv = 1.0 - mask
-
-        # Blend Liotta and ROI using the resized mask
-        for c in range(0, 3):
-            roi[:, :, c] = (mask * liotta_resized[:, :, c] +
-                            mask_inv * roi[:, :, c])
-
-        # Update the original image with the blended ROI
-        image[overlay_y:overlay_y + h, overlay_x:overlay_x + w] = roi
-
-    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in heads]
-    wait(futures)
+        # Blend Liotta and ROI using alpha channel
+        image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = (
+            liotta_resized[:, :, :3] * (liotta_resized[:, :, 3:] / 255.0) +
+            image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] *
+            (1.0 - liotta_resized[:, :, 3:] / 255.0)
+        )
 
     processed_path = f"processed/{user_id}_liotta.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
@@ -103,7 +88,7 @@ def skull_overlay(photo_path, user_id, bot):
 
     heads = detect_heads(image)
 
-    def process_face(x, y, w, h):
+    for (x, y, w, h) in heads:
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
 
         # Calculate aspect ratio of the original skull image
@@ -113,28 +98,18 @@ def skull_overlay(photo_path, user_id, bot):
         overlay_x = max(0, x - int(0.25 * w))
         overlay_y = max(0, y - int(0.25 * h))
 
-        roi = image[overlay_y:overlay_y + h, overlay_x:overlay_x + w]
-
-        # Calculate the new width and height while maintaining aspect ratio
+        # Resize Skull of Satoshi to match the width and height of the face
         new_width = int(SKULL_RESIZE_FACTOR * w)
         new_height = int(new_width / original_aspect_ratio)
 
-        # Resize Skull of Satoshi with the updated resize factor
         skull_resized = cv2.resize(skull, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
-        alpha_channel = skull_resized[:, :, 3] / 255.0
-
-        mask = cv2.resize(alpha_channel, (new_width, new_height), interpolation=cv2.INTER_AREA)
-        mask_inv = 1.0 - mask
-
-        for c in range(0, 3):
-            roi[:, :, c] = (mask * skull_resized[:, :, c] +
-                            mask_inv * roi[:, :, c])
-
-        image[overlay_y:overlay_y + h, overlay_x:overlay_x + w] = roi
-
-    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in heads]
-    wait(futures)
+        # Blend Skull of Satoshi and ROI using alpha channel
+        image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = (
+            skull_resized[:, :, :3] * (skull_resized[:, :, 3:] / 255.0) +
+            image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] *
+            (1.0 - skull_resized[:, :, 3:] / 255.0)
+        )
 
     processed_path = f"processed/{user_id}_skull_of_satoshi.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
