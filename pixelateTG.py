@@ -60,8 +60,8 @@ def liotta_overlay(photo_path, user_id, bot):
         original_aspect_ratio = liotta.shape[1] / liotta.shape[0]
 
         # Adjusting starting position for better alignment
-        overlay_x = max(0, x - int(0.2 * w))
-        overlay_y = max(0, y - int(0.2 * h))
+        overlay_x = max(0, x - int(0.15 * w))
+        overlay_y = max(0, y - int(0.15 * h))
 
         # Resize Liotta to match the width and height of the face
         new_width = int(LIOTTA_RESIZE_FACTOR * w)
@@ -94,7 +94,7 @@ def skull_overlay(photo_path, user_id, bot):
         # Calculate aspect ratio of the original skull image
         original_aspect_ratio = skull.shape[1] / skull.shape[0]
 
-        # Similar processing logic as in liotta_overlay function
+        # Adjusting starting position for better alignment
         overlay_x = max(0, x - int(0.2 * w))
         overlay_y = max(0, y - int(0.2 * h))
 
@@ -115,7 +115,6 @@ def skull_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
