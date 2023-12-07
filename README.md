@@ -2,9 +2,9 @@
 A Telegram bot that replaces faces with pixels, skull of satoshi or liotta faces and runs via github actions.
 https://t.me/Pixelatebot
 
-![photo_2023-12-06_18-57-09](https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/1046add6-fab1-4139-bf93-171c9593dfea)
-![photo_2023-12-06_18-57-07](https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/bbce7e38-0205-4670-833d-25b0df51db79)
-![photo_2023-12-06_20-26-15](https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/e5a2917f-67e4-4ae5-bf16-c044c43387ad)
+<img width="443" alt="Screenshot 2023-12-07 at 13 48 39" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/d896d365-0c91-4c49-890d-eacf8f4143f0">
+<img width="428" alt="Screenshot 2023-12-07 at 13 48 12" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/cdbb336a-a351-4553-91bf-687fb4b7c63d">
+<img width="436" alt="Screenshot 2023-12-07 at 13 48 05" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/50def6b9-a0d5-4ad4-ab77-064dccd7fe71">
 
 # Install
 - Fork
