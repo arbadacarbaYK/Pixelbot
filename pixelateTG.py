@@ -64,7 +64,7 @@ def liotta_overlay(photo_path, user_id, bot):
         center_y = y + h // 2
 
         # Adjusting starting position based on the center for better alignment
-        overlay_x = int(center_x - 0.5 * LIOTTA_RESIZE_FACTOR * w)
+        overlay_x = int(center_x - 0.5 * LIOTTA_RESIZE_FACTOR * w) - int(0.1 * LIOTTA_RESIZE_FACTOR * w)
         overlay_y = int(center_y - 0.5 * LIOTTA_RESIZE_FACTOR * h)
 
         # Resize Liotta to match the width and height of the face
@@ -103,7 +103,7 @@ def skull_overlay(photo_path, user_id, bot):
         center_y = y + h // 2
 
         # Adjusting starting position based on the center for better alignment
-        overlay_x = max(0, center_x - int(0.5 * SKULL_RESIZE_FACTOR * w))
+        overlay_x = max(0, center_x - int(0.5 * SKULL_RESIZE_FACTOR * w)) - int(0.1 * SKULL_RESIZE_FACTOR * w)
         overlay_y = max(0, center_y - int(0.5 * SKULL_RESIZE_FACTOR * h))
 
         # Resize Skull of Satoshi to match the width and height of the face
