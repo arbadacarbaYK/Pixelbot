@@ -103,26 +103,35 @@ def skull_overlay(photo_path, user_id, bot):
         center_y = y + h // 2
 
         # Adjusting starting position based on the center for better alignment
-        overlay_x = int(center_x - 0.5 * SKULL_RESIZE_FACTOR * w)
-        overlay_y = int(center_y - 0.5 * SKULL_RESIZE_FACTOR * h)
+        overlay_x = max(0, center_x - int(0.5 * SKULL_RESIZE_FACTOR * w))
+        overlay_y = max(0, center_y - int(0.5 * SKULL_RESIZE_FACTOR * h))
 
         # Resize Skull of Satoshi to match the width and height of the face
         new_width = int(SKULL_RESIZE_FACTOR * w)
         new_height = int(new_width / original_aspect_ratio)
 
+        # Ensure the overlay image has a valid size
+        if new_height <= 0 or new_width <= 0:
+            continue
+
         skull_resized = cv2.resize(skull, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
         # Blend Skull of Satoshi and ROI using alpha channel
-        image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = (
-            skull_resized[:, :, :3] * (skull_resized[:, :, 3:] / 255.0) +
-            image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] *
-            (1.0 - skull_resized[:, :, 3:] / 255.0)
-        )
+        mask = skull_resized[:, :, 3] / 255.0
+        mask_inv = 1.0 - mask
+
+        roi = image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3]
+
+        for c in range(3):
+            roi[:, :, c] = (mask * skull_resized[:, :, c] + mask_inv * roi[:, :, c])
+
+        image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = roi
 
     processed_path = f"processed/{user_id}_skull_of_satoshi.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
