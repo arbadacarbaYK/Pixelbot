@@ -91,17 +91,17 @@ def liotta_overlay(photo_path, user_id, bot):
 # Inside cats_overlay function
 # Inside cats_overlay function
 def cats_overlay(photo_path, user_id, bot):
-    image = cv2.imread(photo_path)  
-    num_cats = len([name for name in os.listdir() if name.startswith('cat_')])
-    random_cat = f'cat_{random.randint(1, num_cats)}.png'  
-    cat = cv2.imread(random_cat, cv2.IMREAD_UNCHANGED)
-
+    image = cv2.imread(photo_path)
     heads = detect_heads(image)
 
     for (x, y, w, h) in heads:
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
 
         # Calculate aspect ratio of the original cat image
+        num_cats = len([name for name in os.listdir() if name.startswith('cat_')])
+        random_cat = f'cat_{random.randint(1, num_cats)}.png'
+        cat = cv2.imread(random_cat, cv2.IMREAD_UNCHANGED)
+
         original_aspect_ratio = cat.shape[1] / cat.shape[0]
 
         # Calculate the center of the face
@@ -112,8 +112,8 @@ def cats_overlay(photo_path, user_id, bot):
         overlay_x = int(center_x - 0.5 * LIOTTA_RESIZE_FACTOR * w) - int(0.1 * LIOTTA_RESIZE_FACTOR * w)
         overlay_y = int(center_y - 0.5 * LIOTTA_RESIZE_FACTOR * h)
 
-        # Resize cats with a separate factor for cats
-        new_width = int(CATS_RESIZE_FACTOR * w)
+        # Resize cats to match the width and height of the face
+        new_width = int(LIOTTA_RESIZE_FACTOR * w)
         new_height = int(new_width / original_aspect_ratio)
 
         cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
