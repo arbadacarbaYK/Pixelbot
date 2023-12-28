@@ -193,6 +193,7 @@ def skull_overlay(photo_path, user_id, bot):
     return processed_path
 
 # Swap face function
+def # Inside swap_face function
 def swap_face(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     heads = detect_heads(update.message.photo[-1].file_id)
@@ -211,7 +212,7 @@ def swap_face(update: Update, context: CallbackContext) -> None:
         return
 
     # Construct the local file path for the user's picture
-    user_picture_path = f"user_{user_id}_picture.jpg"
+    user_picture_path = f"user_{user_id}_picture.png"
     user_picture.download(user_picture_path)
 
     # Read the user's picture
@@ -221,9 +222,9 @@ def swap_face(update: Update, context: CallbackContext) -> None:
     for (x, y, w, h) in heads:
         # Rest of the code for face swap...
 
-    # Save the processed image
-    processed_path = f"processed/{user_id}_face_swap.jpg"
-    cv2.imwrite(processed_path, user_picture_image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+    # Save the processed image in PNG format
+    processed_path = f"processed/{user_id}_face_swap.png"
+    cv2.imwrite(processed_path, user_picture_image, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
 
     # Send the processed image back to the user
     with open(processed_path, 'rb') as photo:
