@@ -108,8 +108,8 @@ def cats_overlay(photo_path, user_id, bot):
         center_y = y + h // 2
 
         # Adjusting starting position based on the center for better alignment
-        overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * w) - int(0.1 * LIOTTA_RESIZE_FACTOR * w)
-        overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * h)
+        overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * new_width)
+        overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * new_height)
 
         # Resize cats to match the width and height of the face
         new_width = int(CATS_RESIZE_FACTOR * w)
