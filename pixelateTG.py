@@ -195,27 +195,25 @@ def skull_overlay(photo_path, user_id, bot):
 # Swap face function
 def swap_face(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    heads = detect_heads(update.message.photo[-1].file_id)
+
+    # Get the user's picture
+    file_id = update.message.photo[-1].file_id
+    file = context.bot.get_file(file_id)
+
+    # Construct the local file path for the user's picture
+    user_picture_path = f"user_{user_id}_picture.png"
+    file.download(user_picture_path)
+
+    # Read the user's picture
+    user_picture_image = cv2.imread(user_picture_path)
+
+    # Detect heads in the user's picture
+    heads = detect_heads(user_picture_image)
 
     # Check if there is at least one face in the image
     if not heads:
         update.message.reply_text("No faces detected in the provided image.")
         return
-
-    # Assuming user's own picture is a PNG file
-    user_picture_id = update.message.photo[-1].file_id
-    user_picture = context.bot.get_file(user_picture_id)
-
-    if user_picture is None:
-        update.message.reply_text("Error: Failed to retrieve the user picture.")
-        return
-
-    # Construct the local file path for the user's picture
-    user_picture_path = f"user_{user_id}_picture.png"
-    user_picture.download(user_picture_path)
-
-    # Read the user's picture
-    user_picture_image = cv2.imread(user_picture_path)
 
     # Process each detected face
     for (x, y, w, h) in heads:
@@ -234,6 +232,7 @@ def swap_face(update: Update, context: CallbackContext) -> None:
     os.remove(user_picture_path)
 
     return processed_path
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
