@@ -220,7 +220,7 @@ def swap_face(update: Update, context: CallbackContext) -> None:
         # Rest of the code for face swap...
 
     # Save the processed image in the same format as the user's picture
-    user_picture_extension = os.path.splitext(user_picture_path)[1]
+    _, user_picture_extension = os.path.splitext(user_picture_path)
     processed_path = f"processed/{user_id}_face_swap{user_picture_extension}"
     cv2.imwrite(processed_path, user_picture_image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
