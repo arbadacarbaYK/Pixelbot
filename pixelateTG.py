@@ -92,13 +92,15 @@ def cats_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     heads = detect_heads(image)
 
-    # Resize all cat images to a consistent factor outside the loop
-    num_cats = len([name for name in os.listdir() if name.startswith('cat_')])
-    cat_resized = [cv2.resize(cv2.imread(f'cat_{i}.png', cv2.IMREAD_UNCHANGED), None,
-                              fx=CATS_RESIZE_FACTOR, fy=CATS_RESIZE_FACTOR, interpolation=cv2.INTER_AREA) for i in range(1, num_cats + 1)]
-
     for (x, y, w, h) in heads:
         print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
+
+        # Calculate aspect ratio of the original cat image
+        num_cats = len([name for name in os.listdir() if name.startswith('cat_')])
+        random_cat = f'cat_{random.randint(1, num_cats)}.png'
+        cat = cv2.imread(random_cat, cv2.IMREAD_UNCHANGED)
+
+        original_aspect_ratio = cat.shape[1] / cat.shape[0]
 
         # Calculate the center of the face
         center_x = x + w // 2
@@ -108,26 +110,27 @@ def cats_overlay(photo_path, user_id, bot):
         overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * w)
         overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * h)
 
-        # Resize cats to match the width and height of the face
+        # Resize the entire cat overlay by the CATS_RESIZE_FACTOR
         new_width = int(CATS_RESIZE_FACTOR * w)
-        new_height = int(new_width / (cat_resized[0].shape[1] / cat_resized[0].shape[0]))
+        new_height = int(CATS_RESIZE_FACTOR * h)
 
-        cat_resized_single = random.choice(cat_resized)  # Randomly select a resized cat image
+        cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
         # Adjust the overlay position to bring the cats down a bit
         overlay_y = int(overlay_y + 0.05 * h)
 
         # Blend cats and ROI using alpha channel
         image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = (
-            cat_resized_single[:, :, :3] * (cat_resized_single[:, :, 3:] / 255.0) +
+            cat_resized[:, :, :3] * (cat_resized[:, :, 3:] / 255.0) +
             image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] *
-            (1.0 - cat_resized_single[:, :, 3:] / 255.0)
+            (1.0 - cat_resized[:, :, 3:] / 255.0)
         )
 
     processed_path = f"processed/{user_id}_cats.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 # Inside skull_overlay function
 def skull_overlay(photo_path, user_id, bot):
