@@ -108,18 +108,15 @@ def cats_overlay(photo_path, user_id, bot):
         center_x = x + w // 2
         center_y = y + h // 2
 
-        # Calculate the overlay position based on the center for better alignment
+        # Adjusting starting position based on the center for better alignment
         overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * w)
-        overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * h)
+        overlay_y = int(center_y + 0.1 * CATS_RESIZE_FACTOR * h)  # Adjusted to bring the overlay down
 
-        # Resize cats to match the width and height of the face
-        new_width = int(CATS_RESIZE_FACTOR * w)
+        # Resize cats to a larger size
+        new_width = int(1.2 * CATS_RESIZE_FACTOR * w)
         new_height = int(new_width / original_aspect_ratio)
 
         cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
-
-        # Adjust the overlay position to ensure the cat is not too high
-        overlay_y = max(0, overlay_y)
 
         # Blend cats and ROI using alpha channel
         image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = (
@@ -132,6 +129,7 @@ def cats_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 # Inside skull_overlay function
 def skull_overlay(photo_path, user_id, bot):
