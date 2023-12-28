@@ -88,6 +88,7 @@ def liotta_overlay(photo_path, user_id, bot):
     return processed_path
 
 # Inside cats_overlay function
+# Inside cats_overlay function
 def cats_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)  
     num_cats = len([name for name in os.listdir() if name.startswith('cats_')])
