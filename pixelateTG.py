@@ -225,6 +225,7 @@ def swap_face(update: Update, context: CallbackContext) -> None:
     processed_path = "processed/{}_face_swap.jpg".format(user_id)
     cv2.imwrite(processed_path, user_picture_image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
+
     # Send the processed image back to the user
     with open(processed_path, 'rb') as photo:
         update.message.reply_photo(photo)
