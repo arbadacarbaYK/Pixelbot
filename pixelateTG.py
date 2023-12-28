@@ -109,7 +109,7 @@ def cats_overlay(photo_path, user_id, bot):
 
         # Calculate the overlay position to center the cat on the face
         overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * w)
-        overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * h)
+        overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * h) - int(0.1 * CATS_RESIZE_FACTOR * h)
 
         # Resize the cat image
         new_width = int(CATS_RESIZE_FACTOR * w)
