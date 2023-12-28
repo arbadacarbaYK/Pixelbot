@@ -125,10 +125,9 @@ def cats_overlay(photo_path, user_id, bot):
         )
 
     processed_path = f"processed/{user_id}_cats.jpg"
-    cv2.imwrite(processed_path, image)
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
 
 # Inside skull_overlay function
 def skull_overlay(photo_path, user_id, bot):
