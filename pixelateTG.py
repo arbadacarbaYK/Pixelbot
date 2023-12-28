@@ -11,7 +11,7 @@ MAX_THREADS = 5
 PIXELATION_FACTOR = 0.03
 LIOTTA_RESIZE_FACTOR = 1.5
 SKULL_RESIZE_FACTOR = 1.9  # Adjust the resize factor for Skull of Satoshi
-CATS_RESIZE_FACTOR = 2.4  # Adjust the resize factor for cats
+CATS_RESIZE_FACTOR = 1.9  # Adjust the resize factor for cats
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
