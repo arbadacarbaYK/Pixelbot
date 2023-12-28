@@ -41,6 +41,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("Liotta Overlay", callback_data='liotta')],
         [InlineKeyboardButton("Skull of Satoshi", callback_data='skull_of_satoshi')],
         [InlineKeyboardButton("Cats (press until happy)", callback_data='cats_overlay')],
+        [InlineKeyboardButton("Use own file", callback_data='swap_face')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Choose an option:', reply_markup=reply_markup)
@@ -191,6 +192,65 @@ def skull_overlay(photo_path, user_id, bot):
 
     return processed_path
 
+# Swap face function
+def swap_face(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    heads = detect_heads(image)
+
+    # Check if there is at least one face in the image
+    if not heads:
+        return "No faces detected in the provided image."
+
+    # Assuming user's own picture is a PNG file
+    user_picture_path = f"user_{user_id}_picture.png"
+    user_picture = cv2.imread(user_picture_path, cv2.IMREAD_UNCHANGED)
+
+    for (x, y, w, h) in heads:
+        print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
+
+        # Calculate aspect ratio of the original user picture
+        original_aspect_ratio = user_picture.shape[1] / user_picture.shape[0]
+
+        # Calculate the center of the face
+        center_x = x + w // 2
+        center_y = y + h // 2
+
+        # Calculate the overlay position to center the user picture on the face
+        overlay_x = int(center_x - 0.5 * w) - int(0.1 * w)
+        overlay_y = int(center_y - 0.5 * h) - int(0.1 * w)
+
+        # Resize the user picture to match the width and height of the face
+        new_width = w
+        new_height = int(new_width / original_aspect_ratio)
+        user_picture_resized = cv2.resize(user_picture, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+        # Ensure the overlay position is within the image boundaries
+        overlay_x = max(0, overlay_x)
+        overlay_y = max(0, overlay_y)
+
+        # Calculate the region of interest (ROI) for blending
+        roi_start_x = max(0, overlay_x)
+        roi_start_y = max(0, overlay_y)
+        roi_end_x = min(image.shape[1], overlay_x + new_width)
+        roi_end_y = min(image.shape[0], overlay_y + new_height)
+
+        # Blend user picture and ROI using alpha channel
+        image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
+            user_picture_resized[
+                roi_start_y - overlay_y : roi_end_y - overlay_y,
+                roi_start_x - overlay_x : roi_end_x - overlay_x,
+                :3
+            ] * (user_picture_resized[:, :, 3:] / 255.0) +
+            image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
+            (1.0 - user_picture_resized[:, :, 3:] / 255.0)
+        )
+
+    processed_path = f"processed/{user_id}_face_swap.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -210,6 +270,8 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             processed_path = skull_overlay(photo_path, user_id, context.bot)
         elif option == 'cats_overlay':
             processed_path = cats_overlay(photo_path, user_id, context.bot)
+        elif option == 'swap_face':
+            processed_path = swap_face(photo_path, user_id, context.bot)
 
         context.bot.send_photo(chat_id=update.callback_query.message.chat_id, photo=open(processed_path, 'rb'))
     else:
