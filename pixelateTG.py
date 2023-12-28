@@ -221,9 +221,10 @@ def swap_face(update: Update, context: CallbackContext) -> None:
     for (x, y, w, h) in heads:
         # Rest of the code for face swap...
 
-    # Save the processed image in PNG format
-    processed_path = f"processed/{user_id}_face_swap.png"
-    cv2.imwrite(processed_path, user_picture_image, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
+    # Save the processed image in the same format as the user's picture
+    _, user_picture_extension = os.path.splitext(user_picture_path)
+    processed_path = f"processed/{user_id}_face_swap{user_picture_extension}"
+    cv2.imwrite(processed_path, user_picture_image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     # Send the processed image back to the user
     with open(processed_path, 'rb') as photo:
@@ -233,8 +234,6 @@ def swap_face(update: Update, context: CallbackContext) -> None:
     os.remove(user_picture_path)
 
     return processed_path
-
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
