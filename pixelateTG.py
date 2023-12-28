@@ -91,8 +91,8 @@ def liotta_overlay(photo_path, user_id, bot):
 # Inside cats_overlay function
 def cats_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)  
-    num_cats = len([name for name in os.listdir() if name.startswith('cats_')])
-    random_cat = f'cats_{random.randint(1, num_cats)}.png'  
+    num_cats = len([name for name in os.listdir() if name.startswith('cat_')])
+    random_cat = f'cat_{random.randint(1, num_cats)}.png'  
     cat = cv2.imread(random_cat, cv2.IMREAD_UNCHANGED)
 
     heads = detect_heads(image)
