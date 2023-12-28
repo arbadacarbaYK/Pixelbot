@@ -1,5 +1,6 @@
 import os
 import cv2
+import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler, CallbackQueryHandler
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -38,6 +39,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("Pixelate", callback_data='pixelate')],
         [InlineKeyboardButton("Liotta Overlay", callback_data='liotta')],
         [InlineKeyboardButton("Skull of Satoshi", callback_data='skull_of_satoshi')],
+        [InlineKeyboardButton("Cats", callback_data='cats_overlay')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Choose an option:', reply_markup=reply_markup)
@@ -82,6 +84,48 @@ def liotta_overlay(photo_path, user_id, bot):
 
     processed_path = f"processed/{user_id}_liotta.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+# Inside cats_overlay function
+def cats_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)  
+    num_cats = len([name for name in os.listdir() if name.startswith('cats_')])
+    random_cat = f'cats_{random.randint(1, num_cats)}.png'  
+    cat = cv2.imread(random_cat, cv2.IMREAD_UNCHANGED)
+
+    heads = detect_heads(image)
+
+    for (x, y, w, h) in heads:
+        print(f"Processing head at ({x}, {y}), width: {w}, height: {h}")
+
+        # Calculate aspect ratio of the original cat image
+        original_aspect_ratio = cat.shape[1] / cat.shape[0]
+
+        # Calculate the center of the face
+        center_x = x + w // 2
+        center_y = y + h // 2
+
+        # Adjusting starting position based on the center for better alignment
+        overlay_x = int(center_x - 0.5 * LIOTTA_RESIZE_FACTOR * w) - int(0.1 * LIOTTA_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * LIOTTA_RESIZE_FACTOR * h)
+
+        # Resize cats to match the width and height of the face
+        new_width = int(LIOTTA_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+
+        cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+        # Blend cats and ROI using alpha channel
+        image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = (
+            cat_resized[:, :, :3] * (cat_resized[:, :, 3:] / 255.0) +
+            image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] *
+            (1.0 - cat_resized[:, :, 3:] / 255.0)
+        )
+
+    processed_path = f"processed/{user_id}_cats.jpg"
+
+    cv2.imwrite(processed_path, image)
 
     return processed_path
 
@@ -149,6 +193,8 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             processed_path = liotta_overlay(photo_path, user_id, context.bot)
         elif option == 'skull_of_satoshi':
             processed_path = skull_overlay(photo_path, user_id, context.bot)
+        elif option == 'cats_overlay':
+            processed_path = cats_overlay(photo_path, user_id, context.bot)
 
         context.bot.send_photo(chat_id=update.callback_query.message.chat_id, photo=open(processed_path, 'rb'))
     else:
