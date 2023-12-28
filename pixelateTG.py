@@ -110,7 +110,7 @@ def cats_overlay(photo_path, user_id, bot):
 
         # Adjusting starting position based on the center for better alignment
         overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * w)
-        overlay_y = int(center_y + 0.1 * CATS_RESIZE_FACTOR * h)  # Adjusted to bring the overlay down
+        overlay_y = int(center_y + 0.05 * CATS_RESIZE_FACTOR * h)  # Adjusted to bring the overlay down more conservatively
 
         # Resize cats to a larger size
         new_width = int(1.2 * CATS_RESIZE_FACTOR * w)
@@ -129,6 +129,7 @@ def cats_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 
 # Inside skull_overlay function
