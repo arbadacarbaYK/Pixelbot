@@ -111,11 +111,20 @@ def cats_overlay(photo_path, user_id, bot):
         overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * w)
         overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * h)
 
-        # Resize cats to match the width and height of the face
+        # Resize cats to fit within the bounding box of the face without stretching
         new_width = int(CATS_RESIZE_FACTOR * w)
-        new_height = int(new_width / original_aspect_ratio)
+        new_height = int(CATS_RESIZE_FACTOR * h)
 
-        # Adjust the aspect ratio to match the original cat image
+        # Calculate the aspect ratio of the original cat image
+        original_aspect_ratio = cat.shape[1] / cat.shape[0]
+
+        # Adjust the width or height to maintain the original aspect ratio
+        if new_width / original_aspect_ratio > new_height:
+            new_width = int(new_height * original_aspect_ratio)
+        else:
+            new_height = int(new_width / original_aspect_ratio)
+
+        # Resize the cat image
         cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
         # Adjust the overlay position to bring the cats down a bit
@@ -132,6 +141,7 @@ def cats_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 
 
