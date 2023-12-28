@@ -222,10 +222,8 @@ def swap_face(update: Update, context: CallbackContext) -> None:
         # Rest of the code for face swap...
 
     # Save the processed image
-    processed_path = "processed/{}_face_swap.jpg".format(user_id)
-    cv2.imwrite(processed_path, user_picture_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
-
-
+    processed_path = f"processed/{user_id}_face_swap.jpg"
+    cv2.imwrite(processed_path, user_picture_image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     # Send the processed image back to the user
     with open(processed_path, 'rb') as photo:
