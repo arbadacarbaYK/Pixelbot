@@ -107,29 +107,14 @@ def cats_overlay(photo_path, user_id, bot):
         center_x = x + w // 2
         center_y = y + h // 2
 
-        # Calculate the overlay position based on the center for better alignment
+        # Calculate the overlay position to center the cat on the face
         overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * w)
         overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * h)
 
-        # Resize cats to fit within the bounding box of the face without stretching
-        new_width = int(CATS_RESIZE_FACTOR * w)
-        new_height = int(CATS_RESIZE_FACTOR * h)
-
-        # Calculate the aspect ratio of the original cat image
-        original_aspect_ratio = cat.shape[1] / cat.shape[0]
-
-        # Adjust the width or height to maintain the original aspect ratio
-        if new_width / original_aspect_ratio > new_height:
-            new_width = int(new_height * original_aspect_ratio)
-        else:
-            new_height = int(new_width / original_aspect_ratio)
-
         # Resize the cat image
+        new_width = int(CATS_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
         cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
-
-        # Adjust the overlay position to center the cat on the face
-        overlay_x = int(center_x - 0.5 * new_width)
-        overlay_y = int(center_y - 0.5 * new_height)
 
         # Ensure the overlay position is within the image boundaries
         overlay_x = max(0, overlay_x)
@@ -156,6 +141,7 @@ def cats_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 
 # Inside skull_overlay function
