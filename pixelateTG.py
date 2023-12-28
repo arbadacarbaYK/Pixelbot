@@ -88,7 +88,6 @@ def liotta_overlay(photo_path, user_id, bot):
 
     return processed_path
 
-# Inside cats_overlay function
 def cats_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     heads = detect_heads(image)
@@ -129,7 +128,6 @@ def cats_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
 
 # Inside skull_overlay function
 def skull_overlay(photo_path, user_id, bot):
