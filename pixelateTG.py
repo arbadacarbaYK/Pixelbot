@@ -11,6 +11,7 @@ MAX_THREADS = 5
 PIXELATION_FACTOR = 0.03
 LIOTTA_RESIZE_FACTOR = 1.5
 SKULL_RESIZE_FACTOR = 1.9  # Adjust the resize factor for Skull of Satoshi
+CATS_RESIZE_FACTOR = 1.9  # Adjust the resize factor for cats
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
@@ -111,8 +112,8 @@ def cats_overlay(photo_path, user_id, bot):
         overlay_x = int(center_x - 0.5 * LIOTTA_RESIZE_FACTOR * w) - int(0.1 * LIOTTA_RESIZE_FACTOR * w)
         overlay_y = int(center_y - 0.5 * LIOTTA_RESIZE_FACTOR * h)
 
-        # Resize cats to match the width and height of the face
-        new_width = int(LIOTTA_RESIZE_FACTOR * w)
+        # Resize cats with a separate factor for cats
+        new_width = int(CATS_RESIZE_FACTOR * w)
         new_height = int(new_width / original_aspect_ratio)
 
         cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
@@ -125,7 +126,6 @@ def cats_overlay(photo_path, user_id, bot):
         )
 
     processed_path = f"processed/{user_id}_cats.jpg"
-
     cv2.imwrite(processed_path, image)
 
     return processed_path
