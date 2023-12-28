@@ -89,7 +89,6 @@ def liotta_overlay(photo_path, user_id, bot):
     return processed_path
 
 # Inside cats_overlay function
-# Inside cats_overlay function
 def cats_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     heads = detect_heads(image)
@@ -109,11 +108,11 @@ def cats_overlay(photo_path, user_id, bot):
         center_y = y + h // 2
 
         # Adjusting starting position based on the center for better alignment
-        overlay_x = int(center_x - 0.5 * LIOTTA_RESIZE_FACTOR * w) - int(0.1 * LIOTTA_RESIZE_FACTOR * w)
-        overlay_y = int(center_y - 0.5 * LIOTTA_RESIZE_FACTOR * h)
+        overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * w) - int(0.1 * LIOTTA_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * h)
 
         # Resize cats to match the width and height of the face
-        new_width = int(LIOTTA_RESIZE_FACTOR * w)
+        new_width = int(CATS_RESIZE_FACTOR * w)
         new_height = int(new_width / original_aspect_ratio)
 
         cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
@@ -129,6 +128,7 @@ def cats_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image)
 
     return processed_path
+
 
 # Inside skull_overlay function
 def skull_overlay(photo_path, user_id, bot):
