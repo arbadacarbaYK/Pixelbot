@@ -127,13 +127,28 @@ def cats_overlay(photo_path, user_id, bot):
         # Resize the cat image
         cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
-        # Adjust the overlay position to bring the cats down a bit
-        overlay_y = int(overlay_y + 0.05 * h)
+        # Adjust the overlay position to center the cat on the face
+        overlay_x = int(center_x - 0.5 * new_width)
+        overlay_y = int(center_y - 0.5 * new_height)
+
+        # Ensure the overlay position is within the image boundaries
+        overlay_x = max(0, overlay_x)
+        overlay_y = max(0, overlay_y)
+
+        # Calculate the region of interest (ROI) for blending
+        roi_start_x = max(0, overlay_x)
+        roi_start_y = max(0, overlay_y)
+        roi_end_x = min(image.shape[1], overlay_x + new_width)
+        roi_end_y = min(image.shape[0], overlay_y + new_height)
 
         # Blend cats and ROI using alpha channel
-        image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = (
-            cat_resized[:, :, :3] * (cat_resized[:, :, 3:] / 255.0) +
-            image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] *
+        image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
+            cat_resized[
+                roi_start_y - overlay_y : roi_end_y - overlay_y,
+                roi_start_x - overlay_x : roi_end_x - overlay_x,
+                :3
+            ] * (cat_resized[:, :, 3:] / 255.0) +
+            image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
             (1.0 - cat_resized[:, :, 3:] / 255.0)
         )
 
@@ -141,8 +156,6 @@ def cats_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
-
 
 
 # Inside skull_overlay function
