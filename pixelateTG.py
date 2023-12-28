@@ -41,7 +41,6 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("Liotta Overlay", callback_data='liotta')],
         [InlineKeyboardButton("Skull of Satoshi", callback_data='skull_of_satoshi')],
         [InlineKeyboardButton("Cats (press until happy)", callback_data='cats_overlay')],
-        [InlineKeyboardButton("Use own file", callback_data='swap_face')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Choose an option:', reply_markup=reply_markup)
@@ -192,48 +191,6 @@ def skull_overlay(photo_path, user_id, bot):
 
     return processed_path
 
-# Swap face function
-def swap_face(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-
-    # Get the user's picture
-    file_id = update.message.photo[-1].file_id
-    file = context.bot.get_file(file_id)
-
-    # Construct the local file path for the user's picture
-    user_picture_path = f"user_{user_id}_picture.png"
-    file.download(user_picture_path)
-
-    # Read the user's picture
-    user_picture_image = cv2.imread(user_picture_path)
-
-    # Detect heads in the user's picture
-    heads = detect_heads(user_picture_image)
-
-    # Check if there is at least one face in the image
-    if not heads:
-        update.message.reply_text("No faces detected in the provided image.")
-        return
-
-    # Process each detected face
-    for (x, y, w, h) in heads:
-        # Rest of the code for face swap...
-
-    # Save the processed image in the same format as the user's picture
-    user_picture_extension = os.path.splitext(user_picture_path)[1]
-    user_picture_extension = user_picture_extension.lstrip('.')
-    processed_path = f"processed/{user_id}_face_swap.{user_picture_extension}"
-    cv2.imwrite(processed_path, user_picture_image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-
-    # Send the processed image back to the user
-    with open(processed_path, 'rb') as photo:
-        update.message.reply_photo(photo)
-
-    # Optionally, you can delete the user's picture file after processing
-    os.remove(user_picture_path)
-
-    return processed_path
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -253,8 +210,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             processed_path = skull_overlay(photo_path, user_id, context.bot)
         elif option == 'cats_overlay':
             processed_path = cats_overlay(photo_path, user_id, context.bot)
-        elif option == 'swap_face':
-            processed_path = swap_face(photo_path, user_id, context.bot)
 
         context.bot.send_photo(chat_id=update.callback_query.message.chat_id, photo=open(processed_path, 'rb'))
     else:
