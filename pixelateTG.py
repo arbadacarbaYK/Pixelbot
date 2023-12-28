@@ -89,6 +89,7 @@ def liotta_overlay(photo_path, user_id, bot):
     return processed_path
 
 # Inside cats_overlay function
+# Inside cats_overlay function
 def cats_overlay(photo_path, user_id, bot):
     image = cv2.imread(photo_path)
     heads = detect_heads(image)
@@ -107,7 +108,7 @@ def cats_overlay(photo_path, user_id, bot):
         center_x = x + w // 2
         center_y = y + h // 2
 
-        # Adjusting starting position based on the center for better alignment
+        # Calculate the overlay position based on the center for better alignment
         overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * w)
         overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * h)
 
@@ -116,6 +117,9 @@ def cats_overlay(photo_path, user_id, bot):
         new_height = int(new_width / original_aspect_ratio)
 
         cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+        # Adjust the overlay position to ensure the cat is not too high
+        overlay_y = max(0, overlay_y)
 
         # Blend cats and ROI using alpha channel
         image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = (
