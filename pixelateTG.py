@@ -193,7 +193,6 @@ def skull_overlay(photo_path, user_id, bot):
     return processed_path
 
 # Swap face function
-def # Inside swap_face function
 def swap_face(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     heads = detect_heads(update.message.photo[-1].file_id)
@@ -234,6 +233,7 @@ def swap_face(update: Update, context: CallbackContext) -> None:
     os.remove(user_picture_path)
 
     return processed_path
+
 
 
 def button_callback(update: Update, context: CallbackContext) -> None:
