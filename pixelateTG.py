@@ -40,7 +40,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("Pixelate", callback_data='pixelate')],
         [InlineKeyboardButton("Liotta Overlay", callback_data='liotta')],
         [InlineKeyboardButton("Skull of Satoshi", callback_data='skull_of_satoshi')],
-        [InlineKeyboardButton("Cats", callback_data='cats_overlay')],
+        [InlineKeyboardButton("Cats (press until happy)", callback_data='cats_overlay')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Choose an option:', reply_markup=reply_markup)
