@@ -7,6 +7,7 @@ https://t.me/Pixelatebot
 <img width="443" alt="Screenshot 2023-12-07 at 13 48 05" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/50def6b9-a0d5-4ad4-ab77-064dccd7fe71">
 <img width="443" alt="Screenshot 2023-12-07 at 12 48 05" src=https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/1d9a3f17-f87e-4cf7-9cf6-8541bb4bc0e5">
 
+
 # Install
 - Fork
 - Set up a repo secret in your repo under settings -> secrets -> actions -> TELEGRAM_BOT_TOKEN -> [yourtoken]
