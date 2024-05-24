@@ -248,8 +248,8 @@ def clowns_overlay(photo_path, user_id, bot):
     heads = detect_heads(image)
 
     for (x, y, w, h) in heads:
-        num_clowns = len([name for name in os.listdir() if name.startswith('clowns_')])
-        random_clown = f'clowns_{random.randint(1, num_clowns)}.png'
+        num_clowns = len([name for name in os.listdir() if name.startswith('clown_')])
+        random_clown = f'clown_{random.randint(1, num_clowns)}.png'
         clown = cv2.imread(random_clown, cv2.IMREAD_UNCHANGED)
         original_aspect_ratio = clown.shape[1] / clown.shape[0]
         center_x = x + w // 2
@@ -279,6 +279,7 @@ def clowns_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
     
 
 def button_callback(update: Update, context: CallbackContext) -> None:
