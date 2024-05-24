@@ -10,8 +10,10 @@ TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 5
 PIXELATION_FACTOR = 0.03
 LIOTTA_RESIZE_FACTOR = 1.5
-SKULL_RESIZE_FACTOR = 1.9  # Adjust the resize factor for Skull of Satoshi
-CATS_RESIZE_FACTOR = 1.5  # Adjust the resize factor for cats
+SKULL_RESIZE_FACTOR = 1.9
+CATS_RESIZE_FACTOR = 1.5
+
+executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
@@ -23,14 +25,6 @@ def detect_heads(image):
     return head_boxes
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
-    chat_type = update.message.chat.type
-    if chat_type in ['group', 'supergroup']:
-        context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text="To process your image, please send it to me in a private message (DM)."
-        )
-        return
-
     file_id = update.message.photo[-1].file_id
     file = context.bot.get_file(file_id)
     file_name = file.file_path.split('/')[-1]
@@ -141,18 +135,14 @@ def skull_overlay(photo_path, user_id, bot):
         overlay_y = max(0, center_y - int(0.5 * SKULL_RESIZE_FACTOR * h))
         new_width = int(SKULL_RESIZE_FACTOR * w)
         new_height = int(new_width / original_aspect_ratio)
-
         if new_height <= 0 or new_width <= 0:
             continue
-
         skull_resized = cv2.resize(skull, (new_width, new_height), interpolation=cv2.INTER_AREA)
         mask = skull_resized[:, :, 3] / 255.0
         mask_inv = 1.0 - mask
         roi = image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3]
-
         for c in range(3):
             roi[:, :, c] = (mask * skull_resized[:, :, c] + mask_inv * roi[:, :, c])
-
         image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = roi
 
     processed_path = f"processed/{user_id}_skull_of_satoshi.jpg"
@@ -171,28 +161,25 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         processed_path = process_image(photo_path, user_id, query.id, context.bot)
     elif query.data == 'liotta':
         processed_path = liotta_overlay(photo_path, user_id, context.bot)
-    elif query.data == 'skull_of_satoshi':
-        processed_path = skull_overlay(photo_path, user_id, context.bot)
     elif query.data == 'cats_overlay':
         processed_path = cats_overlay(photo_path, user_id, context.bot)
+    elif query.data == 'skull_of_satoshi':
+        processed_path = skull_overlay(photo_path, user_id, context.bot)
+    else:
+        return
+    
+    context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
 
-    with open(processed_path, 'rb') as f:
-        context.bot.send_photo(chat_id=query.message.chat_id, photo=f)
-
-    os.remove(photo_path)
-    os.remove(processed_path)
-
-def main():
+def main() -> None:
     updater = Updater(TOKEN)
     dispatcher = updater.dispatcher
 
-    dispatcher.add_handler(CommandHandler('start', start))
-    dispatcher.add_handler(MessageHandler(Filters.photo, pixelate_faces))
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(MessageHandler(Filters.photo & ~Filters.command, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
 
     updater.start_polling()
     updater.idle()
 
 if __name__ == '__main__':
-    executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
     main()
