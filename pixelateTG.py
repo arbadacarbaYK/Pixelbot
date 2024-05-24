@@ -316,7 +316,10 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-            query.message.delete()  # Remove the original message after successful processing for einzie
+            
+        # Keep the keyboard visible by editing the original message's markup
+        query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
+
 
 
 def main() -> None:
