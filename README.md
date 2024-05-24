@@ -7,6 +7,7 @@ https://t.me/Pixelatebot
 <img width="443" alt="Screenshot 2023-12-07 at 13 48 12" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/cdbb336a-a351-4553-91bf-687fb4b7c63d">
 <img width="443" alt="Screenshot 2023-12-07 at 13 48 05" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/50def6b9-a0d5-4ad4-ab77-064dccd7fe71">
 <img width="443" alt="Screenshot 2023-12-07 at 12 48 05" src=https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/1d9a3f17-f87e-4cf7-9cf6-8541bb4bc0e5">
+<img width="443" alt="photo_2024-05-24_22-47-22" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/5d0eeab2-dad0-46d1-91a6-b5b4d7ab7b44">
 
 
 # Install
@@ -25,6 +26,11 @@ It will then self-build up all dependencies given in requirements.txt and run th
 <img width="1241" alt="Screenshot 2023-12-05 at 20 18 47" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/0985eec3-58c4-4837-80fd-762368e10b3f">
 
 
+
+Done
+- Pepe added
+- Cancel button added
+- now also works in Telegram groupchats (as admin)
 
 To Do
 - catch more faces
