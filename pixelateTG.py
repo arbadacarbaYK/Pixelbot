@@ -296,6 +296,8 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             query.message.delete()  # Remove the message
             return
 
+        processed_path = None
+
         if query.data.startswith('pixelate'):
             processed_path = process_image(photo_path, user_id, query.id, context.bot)
         elif query.data.startswith('liotta'):
@@ -310,11 +312,10 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             processed_path = chad_overlay(photo_path, user_id, context.bot)
         elif query.data.startswith('clowns_overlay'):
             processed_path = clowns_overlay(photo_path, user_id, context.bot)
-        else:
-            return
-        
-        context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
 
+        if processed_path:
+            context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+            query.message.delete()  # Remove the original message after successful processing for einzie
 
 
 def main() -> None:
