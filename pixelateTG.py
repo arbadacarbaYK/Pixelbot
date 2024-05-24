@@ -215,7 +215,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if query.data.startswith('cancel'):
             del context.user_data[session_id]  # Delete session data
-            query.message.reply_text('Operation cancelled.')
+            query.message.reply_text('Operation cancelled.', reply_markup=InlineKeyboardMarkup([]))  # Remove keyboard
             return
 
         if query.data.startswith('pixelate'):
@@ -232,7 +232,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             return
         
         context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-
 
 def main() -> None:
     updater = Updater(TOKEN)
