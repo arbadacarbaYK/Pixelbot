@@ -12,6 +12,7 @@ PIXELATION_FACTOR = 0.03
 LIOTTA_RESIZE_FACTOR = 1.5
 SKULL_RESIZE_FACTOR = 1.9
 CATS_RESIZE_FACTOR = 1.5
+PEPE_RESIZE_FACTOR = 1.5
 
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
@@ -44,6 +45,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("Liotta Overlay", callback_data='liotta')],
         [InlineKeyboardButton("Skull of Satoshi", callback_data='skull_of_satoshi')],
         [InlineKeyboardButton("Cats (press until happy)", callback_data='cats_overlay')],
+        [InlineKeyboardButton("Pepe", callback_data='pepe_overlay')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Choose an option:', reply_markup=reply_markup)
@@ -194,7 +196,7 @@ def pepe_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
+    
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -211,6 +213,8 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         processed_path = cats_overlay(photo_path, user_id, context.bot)
     elif query.data == 'skull_of_satoshi':
         processed_path = skull_overlay(photo_path, user_id, context.bot)
+    elif query.data == 'pepe_overlay':
+        processed_path = pepe_overlay(photo_path, user_id, context.bot)
     else:
         return
     
