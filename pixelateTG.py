@@ -31,6 +31,14 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     photo_path = f"downloads/{file_name}"
     file.download(photo_path)
 
+    # Check if any faces are detected
+    image = cv2.imread(photo_path)
+    mtcnn = MTCNN()
+    faces = mtcnn.detect_faces(image)
+    if not faces:
+        # No faces detected, do nothing
+        return
+
     keyboard = [
         [InlineKeyboardButton("Pixelate", callback_data='pixelate')],
         [InlineKeyboardButton("Liotta Overlay", callback_data='liotta')],
