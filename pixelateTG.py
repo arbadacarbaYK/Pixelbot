@@ -62,6 +62,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     context.user_data[session_id]['photo_path'] = photo_path
     context.user_data[session_id]['user_id'] = update.message.from_user.id
 
+
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
     faces = detect_heads(image)
@@ -294,7 +295,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if query.data.startswith('cancel'):
             del context.user_data[session_id]  # Delete session data
-            query.message.delete()  # Remove the message
+            query.message.delete()  # Remove the message containing the keyboard
             return
 
         processed_path = None
@@ -316,9 +317,8 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-            
-        # Keep the keyboard visible by editing the original message's markup
-        query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
+            # Keep the keyboard visible by editing the original message's markup
+            query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
 
 
 
