@@ -14,6 +14,8 @@ LIOTTA_RESIZE_FACTOR = 1.5
 SKULL_RESIZE_FACTOR = 1.9
 CATS_RESIZE_FACTOR = 1.5
 PEPE_RESIZE_FACTOR = 1.5
+CHAD_RESIZE_FACTOR = 1.7
+CLOWNS_RESIZE_FACTOR = 2.0
 
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
@@ -50,6 +52,8 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("Skull of Satoshi", callback_data=f'skull_of_satoshi_{session_id}')],
         [InlineKeyboardButton("Cats (press until happy)", callback_data=f'cats_overlay_{session_id}')],
         [InlineKeyboardButton("Pepe (press until happy)", callback_data=f'pepe_overlay_{session_id}')],
+        [InlineKeyboardButton("Chad", callback_data=f'chad_overlay_{session_id}')],
+        [InlineKeyboardButton("Bring the Clowns", callback_data=f'clowns_overlay_{session_id}')],
         [InlineKeyboardButton("Cancel", callback_data=f'cancel_{session_id}')],  # Add Cancel button
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -201,6 +205,80 @@ def pepe_overlay(photo_path, user_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
+def chad_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    heads = detect_heads(image)
+
+    for (x, y, w, h) in heads:
+        num_chads = len([name for name in os.listdir() if name.startswith('chad_')])
+        random_chad = f'chad_{random.randint(1, num_chads)}.png'
+        chad = cv2.imread(random_chad, cv2.IMREAD_UNCHANGED)
+        original_aspect_ratio = chad.shape[1] / chad.shape[0]
+        center_x = x + w // 2
+        center_y = y + h // 2
+        overlay_x = int(center_x - 0.5 * CHAD_RESIZE_FACTOR * w) - int(0.1 * CHAD_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * CHAD_RESIZE_FACTOR * h) - int(0.1 * CHAD_RESIZE_FACTOR * w)
+        new_width = int(CHAD_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+        chad_resized = cv2.resize(chad, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        overlay_x = max(0, overlay_x)
+        overlay_y = max(0, overlay_y)
+        roi_start_x = max(0, overlay_x)
+        roi_start_y = max(0, overlay_y)
+        roi_end_x = min(image.shape[1], overlay_x + new_width)
+        roi_end_y = min(image.shape[0], overlay_y + new_height)
+        image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
+            chad_resized[
+                roi_start_y - overlay_y : roi_end_y - overlay_y,
+                roi_start_x - overlay_x : roi_end_x - overlay_x,
+                :3
+            ] * (chad_resized[:, :, 3:] / 255.0) +
+            image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
+            (1.0 - chad_resized[:, :, 3:] / 255.0)
+        )
+
+    processed_path = f"processed/{user_id}_chad.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+def clowns_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    heads = detect_heads(image)
+
+    for (x, y, w, h) in heads:
+        num_clowns = len([name for name in os.listdir() if name.startswith('clowns_')])
+        random_clown = f'clowns_{random.randint(1, num_clowns)}.png'
+        clown = cv2.imread(random_clown, cv2.IMREAD_UNCHANGED)
+        original_aspect_ratio = clown.shape[1] / clown.shape[0]
+        center_x = x + w // 2
+        center_y = y + h // 2
+        overlay_x = int(center_x - 0.5 * CLOWNS_RESIZE_FACTOR * w) - int(0.1 * CLOWNS_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * CLOWNS_RESIZE_FACTOR * h) - int(0.1 * CLOWNS_RESIZE_FACTOR * w)
+        new_width = int(CLOWNS_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+        clown_resized = cv2.resize(clown, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        overlay_x = max(0, overlay_x)
+        overlay_y = max(0, overlay_y)
+        roi_start_x = max(0, overlay_x)
+        roi_start_y = max(0, overlay_y)
+        roi_end_x = min(image.shape[1], overlay_x + new_width)
+        roi_end_y = min(image.shape[0], overlay_y + new_height)
+        image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
+            clown_resized[
+                roi_start_y - overlay_y : roi_end_y - overlay_y,
+                roi_start_x - overlay_x : roi_end_x - overlay_x,
+                :3
+            ] * (clown_resized[:, :, 3:] / 255.0) +
+            image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
+            (1.0 - clown_resized[:, :, 3:] / 255.0)
+        )
+
+    processed_path = f"processed/{user_id}_clowns.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
     
 
 def button_callback(update: Update, context: CallbackContext) -> None:
@@ -228,6 +306,10 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             processed_path = skull_overlay(photo_path, user_id, context.bot)
         elif query.data.startswith('pepe_overlay'):
             processed_path = pepe_overlay(photo_path, user_id, context.bot)
+        elif query.data.startswith('chad_overlay'):
+            processed_path = chad_overlay(photo_path, user_id, context.bot)
+        elif query.data.startswith('clowns_overlay'):
+            processed_path = clowns_overlay(photo_path, user_id, context.bot)
         else:
             return
         
