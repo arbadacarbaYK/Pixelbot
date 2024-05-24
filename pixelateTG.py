@@ -50,6 +50,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("Skull of Satoshi", callback_data=f'skull_of_satoshi_{session_id}')],
         [InlineKeyboardButton("Cats (press until happy)", callback_data=f'cats_overlay_{session_id}')],
         [InlineKeyboardButton("Pepe (press until happy)", callback_data=f'pepe_overlay_{session_id}')],
+        [InlineKeyboardButton("Cancel", callback_data=f'cancel_{session_id}')],  # Add Cancel button
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Choose an option:', reply_markup=reply_markup)
@@ -211,6 +212,11 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     if user_data and user_data['state'] == 'waiting_for_photo':
         photo_path = user_data.get('photo_path')
         user_id = user_data.get('user_id')
+
+        if query.data.startswith('cancel'):
+            del context.user_data[session_id]  # Delete session data
+            query.message.reply_text('Operation cancelled.')
+            return
 
         if query.data.startswith('pixelate'):
             processed_path = process_image(photo_path, user_id, query.id, context.bot)
