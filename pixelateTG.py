@@ -5,6 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler, CallbackQueryHandler
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
+from uuid import uuid4
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 5
@@ -26,6 +27,9 @@ def detect_heads(image):
     return head_boxes
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
+    session_id = str(uuid4())  # Generate a unique session ID
+    context.user_data[session_id] = {'state': 'waiting_for_photo'}
+
     file_id = update.message.photo[-1].file_id
     file = context.bot.get_file(file_id)
     file_name = file.file_path.split('/')[-1]
@@ -41,17 +45,17 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         return
 
     keyboard = [
-        [InlineKeyboardButton("Pixelate", callback_data='pixelate')],
-        [InlineKeyboardButton("Liotta Overlay", callback_data='liotta')],
-        [InlineKeyboardButton("Skull of Satoshi", callback_data='skull_of_satoshi')],
-        [InlineKeyboardButton("Cats (press until happy)", callback_data='cats_overlay')],
-        [InlineKeyboardButton("Pepe", callback_data='pepe_overlay')],
+        [InlineKeyboardButton("Pixelate", callback_data=f'pixelate_{session_id}')],
+        [InlineKeyboardButton("Liotta Overlay", callback_data=f'liotta_{session_id}')],
+        [InlineKeyboardButton("Skull of Satoshi", callback_data=f'skull_of_satoshi_{session_id}')],
+        [InlineKeyboardButton("Cats (press until happy)", callback_data=f'cats_overlay_{session_id}')],
+        [InlineKeyboardButton("Pepe", callback_data=f'pepe_overlay_{session_id}')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Choose an option:', reply_markup=reply_markup)
 
-    context.user_data['photo_path'] = photo_path
-    context.user_data['user_id'] = update.message.from_user.id
+    context.user_data[session_id]['photo_path'] = photo_path
+    context.user_data[session_id]['user_id'] = update.message.from_user.id
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
@@ -201,24 +205,29 @@ def pepe_overlay(photo_path, user_id, bot):
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
-    user_data = context.user_data
-    photo_path = user_data['photo_path']
-    user_id = user_data['user_id']
+    session_id = query.data.split('_')[-1]
+    user_data = context.user_data.get(session_id)
 
-    if query.data == 'pixelate':
-        processed_path = process_image(photo_path, user_id, query.id, context.bot)
-    elif query.data == 'liotta':
-        processed_path = liotta_overlay(photo_path, user_id, context.bot)
-    elif query.data == 'cats_overlay':
-        processed_path = cats_overlay(photo_path, user_id, context.bot)
-    elif query.data == 'skull_of_satoshi':
-        processed_path = skull_overlay(photo_path, user_id, context.bot)
-    elif query.data == 'pepe_overlay':
-        processed_path = pepe_overlay(photo_path, user_id, context.bot)
-    else:
-        return
-    
-    context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+    if user_data and user_data['state'] == 'waiting_for_photo':
+        photo_path = user_data.get('photo_path')
+        user_id = user_data.get('user_id')
+
+        if query.data.startswith('pixelate'):
+            processed_path = process_image(photo_path, user_id, query.id, context.bot)
+        elif query.data.startswith('liotta'):
+            processed_path = liotta_overlay(photo_path, user_id, context.bot)
+        elif query.data.startswith('cats_overlay'):
+            processed_path = cats_overlay(photo_path, user_id, context.bot)
+        elif query.data.startswith('skull_of_satoshi'):
+            processed_path = skull_overlay(photo_path, user_id, context.bot)
+        elif query.data.startswith('pepe_overlay'):
+            processed_path = pepe_overlay(photo_path, user_id, context.bot)
+        else:
+            return
+        
+        context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+        del context.user_data[session_id]  # Clear session data after processing
+
 
 def main() -> None:
     updater = Updater(TOKEN)
