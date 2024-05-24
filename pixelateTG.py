@@ -53,7 +53,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("Cats (press until happy)", callback_data=f'cats_overlay_{session_id}')],
         [InlineKeyboardButton("Pepe (press until happy)", callback_data=f'pepe_overlay_{session_id}')],
         [InlineKeyboardButton("Chad (press until happy)", callback_data=f'chad_overlay_{session_id}')],
-        [InlineKeyboardButton("Bring the Clowns (press until happy)", callback_data=f'clowns_overlay_{session_id}')],
+        [InlineKeyboardButton("Clowns (press until happy)", callback_data=f'clowns_overlay_{session_id}')],
         [InlineKeyboardButton("Cancel", callback_data=f'cancel_{session_id}')],  # Add Cancel button
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
