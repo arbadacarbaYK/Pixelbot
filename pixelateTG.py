@@ -8,11 +8,11 @@ from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
-MAX_THREADS = 15
+MAX_THREADS = 5
 PIXELATION_FACTOR = 0.04
 LIOTTA_RESIZE_FACTOR = 1.5
 SKULL_RESIZE_FACTOR = 1.9
-CATS_RESIZE_FACTOR = 1.7
+CATS_RESIZE_FACTOR = 1.5
 PEPE_RESIZE_FACTOR = 1.5
 CHAD_RESIZE_FACTOR = 1.7
 CLOWNS_RESIZE_FACTOR = 1.7
@@ -27,67 +27,6 @@ def detect_heads(image):
     faces = mtcnn.detect_faces(image)
     head_boxes = [(face['box'][0], face['box'][1], int(LIOTTA_RESIZE_FACTOR * face['box'][2]), int(LIOTTA_RESIZE_FACTOR * face['box'][3])) for face in faces]
     return head_boxes
-
-def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
-    image = cv2.imread(photo_path)
-    heads = detect_heads(image)
-
-    for (x, y, w, h) in heads:
-        overlay_files = [name for name in os.listdir() if name.startswith(f'{overlay_type}_')]
-        if not overlay_files:
-            continue
-        random_overlay = random.choice(overlay_files)
-        overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
-        overlay_image_rgb = cv2.cvtColor(overlay_image, cv2.COLOR_BGRA2RGB)  # Convert to RGB
-        original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
-        center_x = x + w // 2
-        center_y = y + h // 2
-        overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.1 * resize_factor * w)
-        overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
-        new_width = int(resize_factor * w)
-        new_height = int(new_width / original_aspect_ratio)
-        overlay_image_resized = cv2.resize(overlay_image_rgb, (new_width, new_height), interpolation=cv2.INTER_AREA)
-        overlay_x = max(0, overlay_x)
-        overlay_y = max(0, overlay_y)
-        roi_start_x = max(0, overlay_x)
-        roi_start_y = max(0, overlay_y)
-        roi_end_x = min(image.shape[1], overlay_x + new_width)
-        roi_end_y = min(image.shape[0], overlay_y + new_height)
-        image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
-            overlay_image_resized *
-            (overlay_image_resized[:, :, 3:] / 255.0) +
-            image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
-            (1.0 - overlay_image_resized[:, :, 3:] / 255.0)
-        )
-
-    processed_path = f"processed/{user_id}_{overlay_type}.jpg"
-    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-
-    return processed_path
-
-
-
-# looking for one straight file
-
-def liotta_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'liotta', LIOTTA_RESIZE_FACTOR, bot)
-
-def skull_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'skullofsatoshi', SKULL_RESIZE_FACTOR, bot)
-
-# looking for a random file out of a similar naming
-
-def pepe_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'pepe', PEPE_RESIZE_FACTOR, bot)
-
-def chad_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'chad', CHAD_RESIZE_FACTOR, bot)
-
-def cats_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'cat', CATS_RESIZE_FACTOR, bot)
-
-def clowns_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'clown', CLOWNS_RESIZE_FACTOR, bot)
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())  # Generate a unique session ID
@@ -108,13 +47,13 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         return
 
     keyboard = [
-        [InlineKeyboardButton("Pixel", callback_data=f'pixelate_{session_id}')],
-        [InlineKeyboardButton("Liotta", callback_data=f'liotta_{session_id}')],
-        [InlineKeyboardButton("Skull of Satoshi", callback_data=f'skull_of_satoshi_{session_id}')],
-        [InlineKeyboardButton("Cats", callback_data=f'cats_overlay_{session_id}')],
-        [InlineKeyboardButton("Pepe", callback_data=f'pepe_overlay_{session_id}')],
-        [InlineKeyboardButton("Chad", callback_data=f'chad_overlay_{session_id}')],
-        [InlineKeyboardButton("Clowns", callback_data=f'clowns_overlay_{session_id}')],
+        [InlineKeyboardButton("Pixel ⚔️", callback_data=f'pixelate_{session_id}')],
+        [InlineKeyboardButton("Liotta 🤣", callback_data=f'liotta_{session_id}')],
+        [InlineKeyboardButton("Skull of Satoshi ☠️☠", callback_data=f'skull_of_satoshi_{session_id}')],
+        [InlineKeyboardButton("Cats 🐈‍⬛", callback_data=f'cats_overlay_{session_id}')],
+        [InlineKeyboardButton("Pepe 🐸", callback_data=f'pepe_overlay_{session_id}')],
+        [InlineKeyboardButton("Chad 🏆", callback_data=f'chad_overlay_{session_id}')],
+        [InlineKeyboardButton("Clowns 🤡", callback_data=f'clowns_overlay_{session_id}')],
         [InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -124,6 +63,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     context.user_data[session_id]['user_id'] = update.message.from_user.id
     # Delete the original picture from the chat
     update.message.delete()
+
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
@@ -141,6 +81,209 @@ def process_image(photo_path, user_id, file_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
+def liotta_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    liotta = cv2.imread('liotta.png', cv2.IMREAD_UNCHANGED)
+    heads = detect_heads(image)
+
+    for (x, y, w, h) in heads:
+        original_aspect_ratio = liotta.shape[1] / liotta.shape[0]
+        center_x = x + w // 2
+        center_y = y + h // 2
+        overlay_x = int(center_x - 0.5 * LIOTTA_RESIZE_FACTOR * w) - int(0.1 * LIOTTA_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * LIOTTA_RESIZE_FACTOR * h)
+        new_width = int(LIOTTA_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+        liotta_resized = cv2.resize(liotta, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = (
+            liotta_resized[:, :, :3] * (liotta_resized[:, :, 3:] / 255.0) +
+            image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] *
+            (1.0 - liotta_resized[:, :, 3:] / 255.0)
+        )
+
+    processed_path = f"processed/{user_id}_liotta.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+def cats_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    heads = detect_heads(image)
+
+    for (x, y, w, h) in heads:
+        num_cats = len([name for name in os.listdir() if name.startswith('cat_')])
+        random_cat = f'cat_{random.randint(1, num_cats)}.png'
+        cat = cv2.imread(random_cat, cv2.IMREAD_UNCHANGED)
+        original_aspect_ratio = cat.shape[1] / cat.shape[0]
+        center_x = x + w // 2
+        center_y = y + h // 2
+        overlay_x = int(center_x - 0.5 * CATS_RESIZE_FACTOR * w) - int(0.1 * CATS_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * CATS_RESIZE_FACTOR * h) - int(0.1 * CATS_RESIZE_FACTOR * w)
+        new_width = int(CATS_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+        cat_resized = cv2.resize(cat, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        overlay_x = max(0, overlay_x)
+        overlay_y = max(0, overlay_y)
+        roi_start_x = max(0, overlay_x)
+        roi_start_y = max(0, overlay_y)
+        roi_end_x = min(image.shape[1], overlay_x + new_width)
+        roi_end_y = min(image.shape[0], overlay_y + new_height)
+        image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
+            cat_resized[
+                roi_start_y - overlay_y : roi_end_y - overlay_y,
+                roi_start_x - overlay_x : roi_end_x - overlay_x,
+                :3
+            ] * (cat_resized[:, :, 3:] / 255.0) +
+            image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
+            (1.0 - cat_resized[:, :, 3:] / 255.0)
+        )
+
+    processed_path = f"processed/{user_id}_cats.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+def skull_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    skull = cv2.imread('skullofsatoshi.png', cv2.IMREAD_UNCHANGED)
+    heads = detect_heads(image)
+
+    for (x, y, w, h) in heads:
+        original_aspect_ratio = skull.shape[1] / skull.shape[0]
+        center_x = x + w // 2
+        center_y = y + h // 2
+        overlay_x = max(0, center_x - int(0.5 * SKULL_RESIZE_FACTOR * w)) - int(0.1 * SKULL_RESIZE_FACTOR * w)
+        overlay_y = max(0, center_y - int(0.5 * SKULL_RESIZE_FACTOR * h))
+        new_width = int(SKULL_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+        if new_height <= 0 or new_width <= 0:
+            continue
+        skull_resized = cv2.resize(skull, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        mask = skull_resized[:, :, 3] / 255.0
+        mask_inv = 1.0 - mask
+        roi = image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3]
+        for c in range(3):
+            roi[:, :, c] = (mask * skull_resized[:, :, c] + mask_inv * roi[:, :, c])
+        image[overlay_y:overlay_y + new_height, overlay_x:overlay_x + new_width, :3] = roi
+
+    processed_path = f"processed/{user_id}_skull_of_satoshi.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+def pepe_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    heads = detect_heads(image)
+
+    for (x, y, w, h) in heads:
+        num_pepes = len([name for name in os.listdir() if name.startswith('pepe_')])
+        random_pepe = f'pepe_{random.randint(1, num_pepes)}.png'
+        pepe = cv2.imread(random_pepe, cv2.IMREAD_UNCHANGED)
+        original_aspect_ratio = pepe.shape[1] / pepe.shape[0]
+        center_x = x + w // 2
+        center_y = y + h // 2
+        overlay_x = int(center_x - 0.5 * PEPE_RESIZE_FACTOR * w) - int(0.1 * PEPE_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * PEPE_RESIZE_FACTOR * h) - int(0.1 * PEPE_RESIZE_FACTOR * w)
+        new_width = int(PEPE_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+        pepe_resized = cv2.resize(pepe, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        overlay_x = max(0, overlay_x)
+        overlay_y = max(0, overlay_y)
+        roi_start_x = max(0, overlay_x)
+        roi_start_y = max(0, overlay_y)
+        roi_end_x = min(image.shape[1], overlay_x + new_width)
+        roi_end_y = min(image.shape[0], overlay_y + new_height)
+        image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
+            pepe_resized[
+                roi_start_y - overlay_y : roi_end_y - overlay_y,
+                roi_start_x - overlay_x : roi_end_x - overlay_x,
+                :3
+            ] * (pepe_resized[:, :, 3:] / 255.0) +
+            image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
+            (1.0 - pepe_resized[:, :, 3:] / 255.0)
+        )
+
+    processed_path = f"processed/{user_id}_pepe.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+def chad_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    heads = detect_heads(image)
+
+    for (x, y, w, h) in heads:
+        num_chads = len([name for name in os.listdir() if name.startswith('chad_')])
+        random_chad = f'chad_{random.randint(1, num_chads)}.png'
+        chad = cv2.imread(random_chad, cv2.IMREAD_UNCHANGED)
+        original_aspect_ratio = chad.shape[1] / chad.shape[0]
+        center_x = x + w // 2
+        center_y = y + h // 2
+        overlay_x = int(center_x - 0.5 * CHAD_RESIZE_FACTOR * w) - int(0.1 * CHAD_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * CHAD_RESIZE_FACTOR * h) - int(0.1 * CHAD_RESIZE_FACTOR * w)
+        new_width = int(CHAD_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+        chad_resized = cv2.resize(chad, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        overlay_x = max(0, overlay_x)
+        overlay_y = max(0, overlay_y)
+        roi_start_x = max(0, overlay_x)
+        roi_start_y = max(0, overlay_y)
+        roi_end_x = min(image.shape[1], overlay_x + new_width)
+        roi_end_y = min(image.shape[0], overlay_y + new_height)
+        image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
+            chad_resized[
+                roi_start_y - overlay_y : roi_end_y - overlay_y,
+                roi_start_x - overlay_x : roi_end_x - overlay_x,
+                :3
+            ] * (chad_resized[:, :, 3:] / 255.0) +
+            image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
+            (1.0 - chad_resized[:, :, 3:] / 255.0)
+        )
+
+    processed_path = f"processed/{user_id}_chad.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+def clowns_overlay(photo_path, user_id, bot):
+    image = cv2.imread(photo_path)
+    heads = detect_heads(image)
+
+    for (x, y, w, h) in heads:
+        num_clowns = len([name for name in os.listdir() if name.startswith('clown_')])
+        random_clown = f'clown_{random.randint(1, num_clowns)}.png'
+        clown = cv2.imread(random_clown, cv2.IMREAD_UNCHANGED)
+        original_aspect_ratio = clown.shape[1] / clown.shape[0]
+        center_x = x + w // 2
+        center_y = y + h // 2
+        overlay_x = int(center_x - 0.5 * CLOWNS_RESIZE_FACTOR * w) - int(0.1 * CLOWNS_RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * CLOWNS_RESIZE_FACTOR * h) - int(0.1 * CLOWNS_RESIZE_FACTOR * w)
+        new_width = int(CLOWNS_RESIZE_FACTOR * w)
+        new_height = int(new_width / original_aspect_ratio)
+        clown_resized = cv2.resize(clown, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        overlay_x = max(0, overlay_x)
+        overlay_y = max(0, overlay_y)
+        roi_start_x = max(0, overlay_x)
+        roi_start_y = max(0, overlay_y)
+        roi_end_x = min(image.shape[1], overlay_x + new_width)
+        roi_end_y = min(image.shape[0], overlay_y + new_height)
+        image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
+            clown_resized[
+                roi_start_y - overlay_y : roi_end_y - overlay_y,
+                roi_start_x - overlay_x : roi_end_x - overlay_x,
+                :3
+            ] * (clown_resized[:, :, 3:] / 255.0) +
+            image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
+            (1.0 - clown_resized[:, :, 3:] / 255.0)
+        )
+
+    processed_path = f"processed/{user_id}_clowns.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+    
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -178,6 +321,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
             # Keep the keyboard visible by editing the original message's markup
             query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
+
 
 def main() -> None:
     updater = Updater(TOKEN)
