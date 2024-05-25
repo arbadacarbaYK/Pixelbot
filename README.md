@@ -31,6 +31,7 @@ Done
 - Pepe added
 - Cancel button added
 - now also works in Telegram groupchats (as admin)
+- timeout for each keyboard (dont spam chat after restart of bot)
 
 To Do
 - catch more faces
