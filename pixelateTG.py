@@ -177,7 +177,14 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             processed_path = pepe_overlay(photo_path, user_id, context.bot)
         elif overlay_type == 'chad':
             processed_path = chad_overlay(photo_path, user_id, context.bot)
-        elif overlay_type == 'clowns
+        elif overlay_type == 'clowns':
+            processed_path = clowns_overlay(photo_path, user_id, context.bot)
+
+        if processed_path:
+            context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+            # Keep the keyboard visible by editing the original message's markup
+            query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
+
 
 def main() -> None:
     updater = Updater(TOKEN)
