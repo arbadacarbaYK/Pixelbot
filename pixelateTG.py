@@ -20,8 +20,8 @@ RESIZE_FACTORS = {
     'skull': 1.9,
     'cats': 1.9,
     'pepe': 1.9,
-    'chad': 1.9,
-    'clowns': 1.9
+    'chad': 2.1,
+    'clowns': 2.1
 }
 
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
