@@ -102,14 +102,14 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         return
 
     keyboard = [
-        [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')],
-        [InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}')],
-        [InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}')],
-        [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}')],
-        [InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}')],
-        [InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-        [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}')],
-        [InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
+        [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+         InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}')],
+        [InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}'),
+         InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}')],
+        [InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+         InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+        [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+         InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Press until happy', reply_markup=reply_markup)
@@ -118,6 +118,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     context.user_data[session_id]['user_id'] = update.message.from_user.id
     # Delete the original picture from the chat
     update.message.delete()
+
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
