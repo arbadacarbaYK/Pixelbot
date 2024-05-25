@@ -20,7 +20,7 @@ RESIZE_FACTORS = {
     'skull': 2.1,
     'cats': 2.1,
     'pepe': 2.1,
-    'chad': 2.1,
+    'chad': 2.3,
     'clowns': 2.1
 }
 
