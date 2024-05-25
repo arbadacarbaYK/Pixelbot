@@ -16,10 +16,10 @@ MAX_THREADS = 5
 PIXELATION_FACTOR = 0.03
 
 RESIZE_FACTORS = {
-    'liotta': 1.5,
-    'skull': 1.9,
-    'cats': 1.5,
-    'pepe': 1.5,
+    'liotta': 1.7,
+    'skull': 1.7,
+    'cats': 1.7,
+    'pepe': 1.7,
     'chad': 1.7,
     'clowns': 1.7
 }
@@ -55,7 +55,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     mtcnn = MTCNN()
     faces = mtcnn.detect_faces(image)
     if not faces:
-        # No faces detected, do nothing
+        update.message.reply_text("No faces detected in the image. Please try another image.")
         return
 
     keyboard = [
@@ -175,6 +175,8 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             processed_path = process_image(photo_path, user_id, query.id, context.bot)
         elif query.data.startswith('liotta'):
             processed_path = apply_overlay(photo_path, user_id, context.bot, 'liotta')
+        elif query.data.startswith('skull_of_satoshi'):
+            processed_path = apply_overlay(photo_path, user_id, context.bot, 'skull')
         elif query.data.startswith('cats_overlay'):
             processed_path = apply_overlay(photo_path, user_id, context.bot, 'cats')
         elif query.data.startswith('pepe_overlay'):
@@ -183,13 +185,12 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             processed_path = apply_overlay(photo_path, user_id, context.bot, 'chad')
         elif query.data.startswith('clowns_overlay'):
             processed_path = apply_overlay(photo_path, user_id, context.bot, 'clowns')
-        elif query.data.startswith('skull_of_satoshi'):
-            processed_path = apply_overlay(photo_path, user_id, context.bot, 'skull')
 
         if processed_path:
             context.bot.send_photo(chat_id=user_data['chat_id'], photo=open(processed_path, 'rb'))
             os.remove(processed_path)
-
+        
+        # Reset user data for this session
         del context.user_data[session_id]
 
 def clean_up_sessions(context: CallbackContext) -> None:
