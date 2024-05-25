@@ -80,6 +80,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     Timer(SESSION_TIMEOUT, clean_up_sessions, [context]).start()
 
 
+
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
     faces = detect_heads(image)
