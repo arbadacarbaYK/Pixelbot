@@ -9,7 +9,7 @@ from uuid import uuid4
 from threading import Timer
 import time
 
-SESSION_TIMEOUT = 300  # 5 minutes in seconds
+SESSION_TIMEOUT = 1800  # 30 minutes in seconds
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 5
@@ -74,8 +74,8 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     context.user_data[session_id]['photo_path'] = photo_path
     context.user_data[session_id]['user_id'] = update.message.from_user.id
 
-    # Schedule a cleanup for this session after 5 minutes
-    Timer(SESSION_TIMEOUT, clean_up_sessions, [context]).start()
+    # Schedule a cleanup for this session after 30 minutes
+    Timer(SESSION_TIMEOUT, clean_up_sessions, [context, session_id]).start()
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
@@ -152,6 +152,7 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
     return processed_path
 
 
+
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
@@ -194,7 +195,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             return  # Exit the function here to prevent further execution
 
 
-
 def clean_up_sessions(context: CallbackContext) -> None:
     current_time = time.time()
     user_data = context.user_data
@@ -206,6 +206,12 @@ def clean_up_sessions(context: CallbackContext) -> None:
 
     for session_id in sessions_to_remove:
         del user_data[session_id]
+
+    # Also, remove keyboards older than 30 minutes
+    for session_id in list(user_data.keys()):
+        if 'timestamp' in user_data[session_id] and current_time - user_data[session_id]['timestamp'] > 30 * 60:
+            del user_data[session_id]
+
 
 def main() -> None:
     updater = Updater(TOKEN)
@@ -220,3 +226,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
