@@ -165,7 +165,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if query.data.startswith('cancel'):
             del context.user_data[session_id]  # Delete session data
-            query.message.reply_text('Operation canceled')  # Inform the user
             query.message.delete()  # Remove the message containing the keyboard
             return
 
@@ -191,6 +190,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             # Keep the keyboard visible by editing the original message's markup
             query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
             return  # Exit the function here to prevent further execution
+
 
 
 def clean_up_sessions(context: CallbackContext) -> None:
