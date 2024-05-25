@@ -16,12 +16,12 @@ MAX_THREADS = 5
 PIXELATION_FACTOR = 0.03
 
 RESIZE_FACTORS = {
-    'liotta': 1.7,
-    'skull': 1.7,
-    'cats': 1.7,
-    'pepe': 1.7,
-    'chad': 1.7,
-    'clowns': 1.7
+    'liotta': 1.9,
+    'skull': 1.9,
+    'cats': 1.9,
+    'pepe': 1.9,
+    'chad': 1.9,
+    'clowns': 1.9
 }
 
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
