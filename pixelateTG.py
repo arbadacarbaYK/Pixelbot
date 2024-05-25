@@ -125,7 +125,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Reply to an image with /pixel to pixelate faces.')
 
 
-def pixel_command(update: Update, context: CallbackContext) -> None:
+def pixel_command(update: Update, context: CallbackContext, dispatcher) -> None:
     session_id = str(uuid4())  # Generate a unique session ID
     context.user_data[session_id] = {'state': 'waiting_for_photo'}
 
@@ -157,7 +157,7 @@ def pixel_command(update: Update, context: CallbackContext) -> None:
     context.user_data[session_id]['user_id'] = update.message.from_user.id
 
 # Update the dispatcher to handle the new command
-dispatcher.add_handler(CommandHandler("pixel", pixel_command))
+dispatcher.add_handler(CommandHandler("pixel", lambda update, context: pixel_command(update, context, dispatcher)))
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
