@@ -139,7 +139,8 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
     image = cv2.imread(photo_path)
     faces = detect_faces(image)
 
-    overlay_files = [f for f in os.listdir() if f.startswith(overlay_name)]
+    overlay_dir = overlay_name  # Assuming the directory name matches the overlay name
+    overlay_files = [f for f in os.listdir(overlay_dir) if os.path.isfile(os.path.join(overlay_dir, f))]
 
     if not overlay_files:
         return None  # or handle the error in an appropriate way
@@ -147,13 +148,13 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
     resize_factor = RESIZE_FACTORS[overlay_name]
 
     for (x, y, w, h) in faces:
-        original_aspect_ratio = overlay.shape[1] / overlay.shape[0]
+        original_aspect_ratio = image.shape[1] / image.shape[0]
         center_x = x + w // 2
         center_y = y + h // 2
 
         # Select a random overlay file
         random_overlay_file = random.choice(overlay_files)
-        overlay_path = random_overlay_file
+        overlay_path = os.path.join(overlay_dir, random_overlay_file)
 
         overlay = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
         if overlay is None:
