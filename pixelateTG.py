@@ -28,7 +28,7 @@ session_timers = {}
 # Dictionary to store the resize factors for different overlays
 RESIZE_FACTORS = {
     'liotta': 2.1,
-    'skull': 2.1,
+    'skullofsatoshi': 2.1,
     'cats': 2.1,
     'pepe': 2.1,
     'chad': 2.3,
