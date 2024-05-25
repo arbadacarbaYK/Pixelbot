@@ -55,7 +55,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     mtcnn = MTCNN()
     faces = mtcnn.detect_faces(image)
     if not faces:
-        update.message.reply_text("No faces detected in the image. Please try another image.")
+        # No faces detected, do nothing
         return
 
     keyboard = [
@@ -78,6 +78,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
 
     # Schedule a cleanup for this session after 5 minutes
     Timer(SESSION_TIMEOUT, clean_up_sessions, [context]).start()
+
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
@@ -174,24 +175,23 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         if query.data.startswith('pixelate'):
             processed_path = process_image(photo_path, user_id, query.id, context.bot)
         elif query.data.startswith('liotta'):
-            processed_path = apply_overlay(photo_path, user_id, context.bot, 'liotta')
-        elif query.data.startswith('skull_of_satoshi'):
-            processed_path = apply_overlay(photo_path, user_id, context.bot, 'skull')
+            processed_path = liotta_overlay(photo_path, user_id, context.bot)
         elif query.data.startswith('cats_overlay'):
-            processed_path = apply_overlay(photo_path, user_id, context.bot, 'cats')
+            processed_path = cats_overlay(photo_path, user_id, context.bot)
+        elif query.data.startswith('skull_of_satoshi'):
+            processed_path = skull_overlay(photo_path, user_id, context.bot)
         elif query.data.startswith('pepe_overlay'):
-            processed_path = apply_overlay(photo_path, user_id, context.bot, 'pepe')
+            processed_path = pepe_overlay(photo_path, user_id, context.bot)
         elif query.data.startswith('chad_overlay'):
-            processed_path = apply_overlay(photo_path, user_id, context.bot, 'chad')
+            processed_path = chad_overlay(photo_path, user_id, context.bot)
         elif query.data.startswith('clowns_overlay'):
-            processed_path = apply_overlay(photo_path, user_id, context.bot, 'clowns')
+            processed_path = clowns_overlay(photo_path, user_id, context.bot)
 
         if processed_path:
-            context.bot.send_photo(chat_id=user_data['chat_id'], photo=open(processed_path, 'rb'))
-            os.remove(processed_path)
-        
-        # Reset user data for this session
-        del context.user_data[session_id]
+            context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+            # Keep the keyboard visible by editing the original message's markup
+            query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
+            return  # Exit the function here to prevent further execution
 
 def clean_up_sessions(context: CallbackContext) -> None:
     current_time = time.time()
