@@ -80,10 +80,10 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("Pixelate", callback_data=f'pixelate_{session_id}')],
         [InlineKeyboardButton("Liotta Overlay", callback_data=f'liotta_{session_id}')],
         [InlineKeyboardButton("Skull of Satoshi", callback_data=f'skull_of_satoshi_{session_id}')],
-        [InlineKeyboardButton("Cats (press until happy)", callback_data=f'cats_overlay_{session_id}')],
-        [InlineKeyboardButton("Pepe (press until happy)", callback_data=f'pepe_overlay_{session_id}')],
-        [InlineKeyboardButton("Chad (press until happy)", callback_data=f'chad_overlay_{session_id}')],
-        [InlineKeyboardButton("Clowns (press until happy)", callback_data=f'clowns_overlay_{session_id}')],
+        [InlineKeyboardButton("Cats (press until happy)", callback_data=f'cats_{session_id}')],
+        [InlineKeyboardButton("Pepe (press until happy)", callback_data=f'pepe_{session_id}')],
+        [InlineKeyboardButton("Chad (press until happy)", callback_data=f'chad_{session_id}')],
+        [InlineKeyboardButton("Clowns (press until happy)", callback_data=f'clowns_{session_id}')],
         [InlineKeyboardButton("Cancel", callback_data=f'cancel_{session_id}')],  # Add Cancel button
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -175,7 +175,6 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
 
 
 # Function to handle button clicks
