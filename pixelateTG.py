@@ -99,7 +99,7 @@ def overlay_image(image, overlay, heads, resize_factor):
         original_aspect_ratio = overlay.shape[1] / overlay.shape[0]
         center_x = x + w // 2
         center_y = y + h // 2
-        overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.2 * resize_factor * w)  
+        overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.3 * resize_factor * w)  
         overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
         new_width = int(resize_factor * w)
         new_height = int(new_width / original_aspect_ratio)
