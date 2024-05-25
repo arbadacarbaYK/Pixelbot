@@ -10,13 +10,7 @@ from uuid import uuid4
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 15
 PIXELATION_FACTOR = 0.04
-LIOTTA_RESIZE_FACTOR = 1.5
-SKULL_RESIZE_FACTOR = 1.5
-CATS_RESIZE_FACTOR = 1.5
-PEPE_RESIZE_FACTOR = 1.5
-CHAD_RESIZE_FACTOR = 1.5
-CLOWNS_RESIZE_FACTOR = 1.5
-
+RESIZE_FACTOR = 1.5  # Common resize factor
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -25,7 +19,7 @@ def start(update: Update, context: CallbackContext) -> None:
 def detect_heads(image):
     mtcnn = MTCNN()
     faces = mtcnn.detect_faces(image)
-    head_boxes = [(face['box'][0], face['box'][1], int(LIOTTA_RESIZE_FACTOR * face['box'][2]), int(LIOTTA_RESIZE_FACTOR * face['box'][3])) for face in faces]
+    head_boxes = [(face['box'][0], face['box'][1], int(RESIZE_FACTOR * face['box'][2]), int(RESIZE_FACTOR * face['box'][3])) for face in faces]
     return head_boxes
 
 def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
@@ -70,24 +64,24 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
 # looking for one straight file
 
 def liotta_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'liotta', LIOTTA_RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
 
 def skull_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'skullofsatoshi', SKULL_RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'skullofsatoshi', RESIZE_FACTOR, bot)
 
 # looking for a random file out of a similar naming
 
 def pepe_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'pepe', PEPE_RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'pepe', RESIZE_FACTOR, bot)
 
 def chad_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'chad', CHAD_RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'chad', RESIZE_FACTOR, bot)
 
 def cats_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'cat', CATS_RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'cat', RESIZE_FACTOR, bot)
 
 def clowns_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'clown', CLOWNS_RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())  # Generate a unique session ID
