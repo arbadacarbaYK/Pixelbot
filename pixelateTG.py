@@ -50,14 +50,14 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("Pixel", callback_data=f'pixelate_{session_id}')],
         [InlineKeyboardButton("Liotta", callback_data=f'liotta_{session_id}')],
         [InlineKeyboardButton("Skull of Satoshi", callback_data=f'skull_of_satoshi_{session_id}')],
-        [InlineKeyboardButton("Cats (press until happy)", callback_data=f'cats_overlay_{session_id}')],
-        [InlineKeyboardButton("Pepe (press until happy)", callback_data=f'pepe_overlay_{session_id}')],
-        [InlineKeyboardButton("Chad (press until happy)", callback_data=f'chad_overlay_{session_id}')],
-        [InlineKeyboardButton("Clowns (press until happy)", callback_data=f'clowns_overlay_{session_id}')],
+        [InlineKeyboardButton("Cats", callback_data=f'cats_overlay_{session_id}')],
+        [InlineKeyboardButton("Pepe", callback_data=f'pepe_overlay_{session_id}')],
+        [InlineKeyboardButton("Chad", callback_data=f'chad_overlay_{session_id}')],
+        [InlineKeyboardButton("Clowns", callback_data=f'clowns_overlay_{session_id}')],
         [InlineKeyboardButton("Cancel", callback_data=f'cancel_{session_id}')],  # Add Cancel button
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text('Choose an option:', reply_markup=reply_markup)
+    update.message.reply_text('Press until happy', reply_markup=reply_markup)
 
     context.user_data[session_id]['photo_path'] = photo_path
     context.user_data[session_id]['user_id'] = update.message.from_user.id
