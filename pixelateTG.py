@@ -70,9 +70,6 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
 def liotta_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'liotta', LIOTTA_RESIZE_FACTOR, bot)
 
-def cats_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'cats', CATS_RESIZE_FACTOR, bot)
-
 def skull_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'skull_of_satoshi', SKULL_RESIZE_FACTOR, bot)
 
@@ -82,8 +79,11 @@ def pepe_overlay(photo_path, user_id, bot):
 def chad_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'chad', CHAD_RESIZE_FACTOR, bot)
 
+def cats_overlay(photo_path, user_id, bot):
+    return overlay(photo_path, user_id, 'cat', CATS_RESIZE_FACTOR, bot)
+
 def clowns_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'clowns', CLOWNS_RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'clown', CLOWNS_RESIZE_FACTOR, bot)
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())  # Generate a unique session ID
