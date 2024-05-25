@@ -22,10 +22,10 @@ executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
 
-def detect_heads(image):
+def detect_heads(image, resize_factor):
     mtcnn = MTCNN()
     faces = mtcnn.detect_faces(image)
-    head_boxes = [(face['box'][0], face['box'][1], int(LIOTTA_RESIZE_FACTOR * face['box'][2]), int(LIOTTA_RESIZE_FACTOR * face['box'][3])) for face in faces]
+    head_boxes = [(face['box'][0], face['box'][1], int(resize_factor * face['box'][2]), int(resize_factor * face['box'][3])) for face in faces]
     return head_boxes
 
 def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
@@ -80,14 +80,16 @@ def skull_overlay(photo_path, user_id, bot):
 def pepe_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'pepe', PEPE_RESIZE_FACTOR, bot)
 
-def chad_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'chad', CHAD_RESIZE_FACTOR, bot)
-
 def cats_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'cat', CATS_RESIZE_FACTOR, bot)
 
+def chad_overlay(photo_path, user_id, bot):
+    return overlay(photo_path, user_id, 'chad', CHAD_RESIZE_FACTOR, bot)
+
 def clowns_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'clown', CLOWNS_RESIZE_FACTOR, bot)
+
+# do the pixeling
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())  # Generate a unique session ID
@@ -124,6 +126,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     context.user_data[session_id]['user_id'] = update.message.from_user.id
     # Delete the original picture from the chat
     update.message.delete()
+
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
