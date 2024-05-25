@@ -172,6 +172,7 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
     return processed_path
 
 
+
 # Function to handle button clicks
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
