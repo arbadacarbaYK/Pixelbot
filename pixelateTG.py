@@ -16,10 +16,10 @@ MAX_THREADS = 5
 PIXELATION_FACTOR = 0.03
 
 RESIZE_FACTORS = {
-    'liotta': 1.9,
-    'skull': 1.9,
-    'cats': 1.9,
-    'pepe': 1.9,
+    'liotta': 2.1,
+    'skull': 2.1,
+    'cats': 2.1,
+    'pepe': 2.1,
     'chad': 2.1,
     'clowns': 2.1
 }
