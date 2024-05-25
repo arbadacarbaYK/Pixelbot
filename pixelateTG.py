@@ -176,23 +176,24 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         if query.data.startswith('pixelate'):
             processed_path = process_image(photo_path, user_id, query.id, context.bot)
         elif query.data.startswith('liotta'):
-            processed_path = liotta_overlay(photo_path, user_id, context.bot)
+            processed_path = apply_overlay(photo_path, user_id, context.bot, 'liotta')
         elif query.data.startswith('cats_overlay'):
-            processed_path = cats_overlay(photo_path, user_id, context.bot)
+            processed_path = apply_overlay(photo_path, user_id, context.bot, 'cats')
         elif query.data.startswith('skull_of_satoshi'):
-            processed_path = skull_overlay(photo_path, user_id, context.bot)
+            processed_path = apply_overlay(photo_path, user_id, context.bot, 'skull')
         elif query.data.startswith('pepe_overlay'):
-            processed_path = pepe_overlay(photo_path, user_id, context.bot)
+            processed_path = apply_overlay(photo_path, user_id, context.bot, 'pepe')
         elif query.data.startswith('chad_overlay'):
-            processed_path = chad_overlay(photo_path, user_id, context.bot)
+            processed_path = apply_overlay(photo_path, user_id, context.bot, 'chad')
         elif query.data.startswith('clowns_overlay'):
-            processed_path = clowns_overlay(photo_path, user_id, context.bot)
+            processed_path = apply_overlay(photo_path, user_id, context.bot, 'clowns')
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
             # Keep the keyboard visible by editing the original message's markup
             query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
             return  # Exit the function here to prevent further execution
+
 
 
 def clean_up_sessions(context: CallbackContext) -> None:
