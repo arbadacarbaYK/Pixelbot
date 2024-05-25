@@ -52,12 +52,13 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         roi_start_y = max(0, overlay_y)
         roi_end_x = min(image.shape[1], overlay_x + new_width)
         roi_end_y = min(image.shape[0], overlay_y + new_height)
+
+        # Resize overlay image to match ROI dimensions
+        overlay_image_resized = cv2.resize(overlay_image_resized, (roi_end_x - roi_start_x, roi_end_y - roi_start_y))
+
         image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
-            overlay_image_resized[
-                roi_start_y - overlay_y : roi_end_y - overlay_y,
-                roi_start_x - overlay_x : roi_end_x - overlay_x,
-                :3
-            ] * (overlay_image_resized[:, :, 3:] / 255.0) +
+            overlay_image_resized *
+            (overlay_image_resized[:, :, 3:] / 255.0) +
             image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
             (1.0 - overlay_image_resized[:, :, 3:] / 255.0)
         )
@@ -66,6 +67,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 # looking for one straight file
 
