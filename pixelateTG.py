@@ -124,11 +124,11 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
 
     context.user_data[session_id]['photo_path'] = photo_path
     context.user_data[session_id]['user_id'] = update.message.from_user.id
+    context.user_data[session_id]['session_id'] = session_id  # Add session ID for passing to button callback
     # Delete the original picture from the chat
     update.message.delete()
 
-
-def process_image(photo_path, user_id, file_id, bot):
+def process_image(photo_path, user_id, session_id, overlay_type, bot):
     image = cv2.imread(photo_path)
     faces = detect_heads(image)
 
@@ -140,10 +140,11 @@ def process_image(photo_path, user_id, file_id, bot):
     futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in faces]
     wait(futures)
 
-    processed_path = f"processed/{user_id}_{file_id}.jpg"
+    processed_path = f"processed/{user_id}_{overlay_type}_{session_id}.jpg"  # Use session ID in file name
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -154,6 +155,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     if user_data and user_data['state'] == 'waiting_for_photo':
         photo_path = user_data.get('photo_path')
         user_id = user_data.get('user_id')
+        session_id = user_data.get('session_id')  # Retrieve session ID from user data
 
         if query.data.startswith('cancel'):
             del context.user_data[session_id]  # Delete session data
@@ -161,26 +163,21 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             return
 
         processed_path = None
+        overlay_type = query.data.split('_')[0]  # Extract overlay type from callback data
 
-        if query.data.startswith('pixelate'):
-            processed_path = process_image(photo_path, user_id, query.id, context.bot)
-        elif query.data.startswith('liotta'):
+        if overlay_type == 'pixelate':
+            processed_path = process_image(photo_path, user_id, session_id, 'pixelate', context.bot)  # Pass 'pixelate' as overlay type
+        elif overlay_type == 'liotta':
             processed_path = liotta_overlay(photo_path, user_id, context.bot)
-        elif query.data.startswith('cats_overlay'):
+        elif overlay_type == 'cats':
             processed_path = cats_overlay(photo_path, user_id, context.bot)
-        elif query.data.startswith('skull_of_satoshi'):
+        elif overlay_type == 'skull':
             processed_path = skull_overlay(photo_path, user_id, context.bot)
-        elif query.data.startswith('pepe_overlay'):
+        elif overlay_type == 'pepe':
             processed_path = pepe_overlay(photo_path, user_id, context.bot)
-        elif query.data.startswith('chad_overlay'):
+        elif overlay_type == 'chad':
             processed_path = chad_overlay(photo_path, user_id, context.bot)
-        elif query.data.startswith('clowns_overlay'):
-            processed_path = clowns_overlay(photo_path, user_id, context.bot)
-
-        if processed_path:
-            context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-            # Keep the keyboard visible by editing the original message's markup
-            query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
+        elif overlay_type == 'clowns
 
 def main() -> None:
     updater = Updater(TOKEN)
