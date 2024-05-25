@@ -217,7 +217,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 def main() -> None:
     updater = Updater(TOKEN)
     dispatcher = updater.dispatcher
-
+    dispatcher.add_handler(CommandHandler("pixel", lambda update, context: pixel_command(update, context, dispatcher)))
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(MessageHandler(Filters.photo & ~Filters.command, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
