@@ -38,6 +38,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
             continue
         random_overlay = random.choice(overlay_files)
         overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
+        overlay_image_rgb = cv2.cvtColor(overlay_image, cv2.COLOR_BGRA2RGB)  # Convert to RGB
         original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
         center_x = x + w // 2
         center_y = y + h // 2
@@ -45,17 +46,13 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
         new_width = int(resize_factor * w)
         new_height = int(new_width / original_aspect_ratio)
-        overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        overlay_image_resized = cv2.resize(overlay_image_rgb, (new_width, new_height), interpolation=cv2.INTER_AREA)
         overlay_x = max(0, overlay_x)
         overlay_y = max(0, overlay_y)
         roi_start_x = max(0, overlay_x)
         roi_start_y = max(0, overlay_y)
         roi_end_x = min(image.shape[1], overlay_x + new_width)
         roi_end_y = min(image.shape[0], overlay_y + new_height)
-
-        # Resize overlay image to match ROI dimensions
-        overlay_image_resized = cv2.resize(overlay_image_resized, (roi_end_x - roi_start_x, roi_end_y - roi_start_y))
-
         image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
             overlay_image_resized *
             (overlay_image_resized[:, :, 3:] / 255.0) +
@@ -67,6 +64,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 
 # looking for one straight file
