@@ -151,8 +151,22 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
         center_x = x + w // 2
         center_y = y + h // 2
 
-        # Filter overlay files based on the overlay name
-        overlay_files_filtered = [f for f in overlay_files if f.startswith(f'{overlay_name}_')]
+        # Check if the overlay name matches the category
+        if overlay_name == 'cats':
+            overlay_files_filtered = [f for f in overlay_files if f.startswith('cat_')]
+        elif overlay_name == 'chad':
+            overlay_files_filtered = [f for f in overlay_files if f.startswith('chad_')]
+        elif overlay_name == 'clowns':
+            overlay_files_filtered = [f for f in overlay_files if f.startswith('clown_')]
+        elif overlay_name == 'pepe':
+            overlay_files_filtered = [f for f in overlay_files if f.startswith('pepe_')]
+        elif overlay_name == 'skullofsatoshi':
+            overlay_files_filtered = [f for f in overlay_files if f == 'skullofsatoshi.png']
+        elif overlay_name == 'liotta':
+            overlay_files_filtered = [f for f in overlay_files if f == 'liotta.png']
+        else:
+            overlay_files_filtered = []
+
         if not overlay_files_filtered:
             continue  # or handle the error in an appropriate way
 
