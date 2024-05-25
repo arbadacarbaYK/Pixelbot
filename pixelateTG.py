@@ -164,8 +164,10 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         user_data['timestamp'] = time.time()  # Update the timestamp on each interaction
 
         if query.data.startswith('cancel'):
-            del context.user_data[session_id]  # Delete session data
+            # Even if session data is not found, remove the keyboard
             query.message.delete()  # Remove the message containing the keyboard
+            if session_id in context.user_data:
+                del context.user_data[session_id]  # Delete session data
             return
 
         processed_path = None
