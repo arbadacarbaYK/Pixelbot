@@ -192,6 +192,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
             return  # Exit the function here to prevent further execution
 
+
 def clean_up_sessions(context: CallbackContext) -> None:
     current_time = time.time()
     user_data = context.user_data
