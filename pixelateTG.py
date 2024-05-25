@@ -6,6 +6,7 @@ from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, Comm
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
+from telegram import ChatType
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 15
@@ -94,31 +95,70 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     file.download(photo_path)
 
     # Check if any faces are detected
-    image = cv2.imread(photo_path)
-    mtcnn = MTCNN()
-    faces = mtcnn.detect_faces(image)
-    if not faces:
-        # No faces detected, do nothing
-        return
+    chat_type = update.effective_chat.type
+    if chat_type == ChatType.PRIVATE:  # Direct message
+        image = cv2.imread(photo_path)
+        mtcnn = MTCNN()
+        faces = mtcnn.detect_faces(image)
+        if not faces:
+            # No faces detected, do nothing
+            return
 
     keyboard = [
-    [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-     InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}'),
-     InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}')],
-    [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
-     InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-     InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-    [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-     InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
-]
+        [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+         InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}')],
+        [InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}'),
+         InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}')],
+        [InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+         InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+        [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+         InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if chat_type == ChatType.PRIVATE:  # Direct message
+        update.message.reply_text('Press until happy', reply_markup=reply_markup)
+        context.user_data[session_id]['photo_path'] = photo_path
+        context.user_data[session_id]['user_id'] = update.message.from_user.id
+        # Delete the original picture from the chat
+        update.message.delete()
+    else:  # Group chat
+        update.message.reply_text('Reply to an image with /pixel to pixelate faces.')
+        # Do not delete the original message
+
+def pixel_command(update: Update, context: CallbackContext) -> None:
+    session_id = str(uuid4())  # Generate a unique session ID
+    context.user_data[session_id] = {'state': 'waiting_for_photo'}
+
+    message = update.message.reply_to_message
+    if not message or not message.photo:
+        update.message.reply_text("Please reply to an image with /pixel to pixelate faces.")
+        return
+
+    file_id = message.photo[-1].file_id
+    file = context.bot.get_file(file_id)
+    file_name = file.file_path.split('/')[-1]
+    photo_path = f"downloads/{file_name}"
+    file.download(photo_path)
+
+    keyboard = [
+        [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+         InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}')],
+        [InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}'),
+         InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}')],
+        [InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+         InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+        [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+         InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Press until happy', reply_markup=reply_markup)
 
     context.user_data[session_id]['photo_path'] = photo_path
     context.user_data[session_id]['user_id'] = update.message.from_user.id
-    # Delete the original picture from the chat
-    update.message.delete()
 
+# Update the dispatcher to handle the new command
+dispatcher.add_handler(CommandHandler("pixel", pixel_command))
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
