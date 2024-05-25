@@ -73,13 +73,9 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
 
     context.user_data[session_id]['photo_path'] = photo_path
     context.user_data[session_id]['user_id'] = update.message.from_user.id
-    # Delete the original picture from the chat
-    update.message.delete()
 
     # Schedule a cleanup for this session after 5 minutes
     Timer(SESSION_TIMEOUT, clean_up_sessions, [context]).start()
-
-
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
@@ -138,7 +134,8 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
         num_cats = len([name for name in os.listdir() if name.startswith('cat_')])
         overlay = cv2.imread(f'cat_{random.randint(1, num_cats)}.png', cv2.IMREAD_UNCHANGED)
     elif overlay_name == 'pepe':
-        num_pepes = len([name for name in os.listdir() if name.startswith('pepe_')])
+        num_pepes = len([name for name in os.listdir() if
+        overlay_name.startswith('pepe_')])
         overlay = cv2.imread(f'pepe_{random.randint(1, num_pepes)}.png', cv2.IMREAD_UNCHANGED)
     elif overlay_name == 'chad':
         num_chads = len([name for name in os.listdir() if name.startswith('chad_')])
@@ -168,6 +165,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if query.data.startswith('cancel'):
             del context.user_data[session_id]  # Delete session data
+            query.message.reply_text('Operation canceled')  # Inform the user
             query.message.delete()  # Remove the message containing the keyboard
             return
 
@@ -193,8 +191,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             # Keep the keyboard visible by editing the original message's markup
             query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
             return  # Exit the function here to prevent further execution
-
-
 
 def clean_up_sessions(context: CallbackContext) -> None:
     current_time = time.time()
