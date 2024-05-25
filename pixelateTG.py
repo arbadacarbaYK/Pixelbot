@@ -6,6 +6,10 @@ from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, Comm
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
+from threading import Timer
+import time
+
+SESSION_TIMEOUT = 300  # 5 minutes in seconds
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 5
@@ -30,7 +34,12 @@ def detect_heads(image):
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())  # Generate a unique session ID
-    context.user_data[session_id] = {'state': 'waiting_for_photo'}
+    context.user_data[session_id] = {
+        'state': 'waiting_for_photo',
+        'timestamp': time.time(),
+        'chat_id': update.message.chat_id,
+        'message_id': update.message.message_id
+    }
 
     file_id = update.message.photo[-1].file_id
     file = context.bot.get_file(file_id)
@@ -63,6 +72,9 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     context.user_data[session_id]['user_id'] = update.message.from_user.id
     # Delete the original picture from the chat
     update.message.delete()
+
+    # Schedule a cleanup for this session after 5 minutes
+    Timer(SESSION_TIMEOUT, clean_up_sessions, [context]).start()
 
 
 def process_image(photo_path, user_id, file_id, bot):
@@ -294,6 +306,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     if user_data and user_data['state'] == 'waiting_for_photo':
         photo_path = user_data.get('photo_path')
         user_id = user_data.get('user_id')
+        user_data['timestamp'] = time.time()  # Update the timestamp on each interaction
 
         if query.data.startswith('cancel'):
             del context.user_data[session_id]  # Delete session data
@@ -321,6 +334,19 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
             # Keep the keyboard visible by editing the original message's markup
             query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
+
+
+def clean_up_sessions(context: CallbackContext):
+    current_time = time.time()
+    for session_id, session_data in list(context.user_data.items()):
+        if 'timestamp' in session_data and current_time - session_data['timestamp'] > SESSION_TIMEOUT:
+            context.user_data.pop(session_id)
+            context.bot.edit_message_reply_markup(
+                chat_id=session_data['chat_id'],
+                message_id=session_data['message_id'],
+                reply_markup=None
+            )
+            
 
 
 def main() -> None:
