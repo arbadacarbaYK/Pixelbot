@@ -138,7 +138,12 @@ def process_image(photo_path, user_id, file_id, bot):
 def apply_overlay(photo_path, user_id, bot, overlay_name):
     image = cv2.imread(photo_path)
     faces = detect_faces(image)
+    
+    # Load the overlay image
     overlay = cv2.imread(f'{overlay_name}.png', cv2.IMREAD_UNCHANGED)
+    if overlay is None:
+        return None  # or handle the error in an appropriate way
+    
     resize_factor = RESIZE_FACTORS[overlay_name]
 
     for (x, y, w, h) in faces:
