@@ -134,8 +134,7 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
         num_cats = len([name for name in os.listdir() if name.startswith('cat_')])
         overlay = cv2.imread(f'cat_{random.randint(1, num_cats)}.png', cv2.IMREAD_UNCHANGED)
     elif overlay_name == 'pepe':
-        num_pepes = len([name for name in os.listdir() if
-        overlay_name.startswith('pepe_')])
+        num_pepes = len([name for name in os.listdir() if name.startswith('pepe_')])
         overlay = cv2.imread(f'pepe_{random.randint(1, num_pepes)}.png', cv2.IMREAD_UNCHANGED)
     elif overlay_name == 'chad':
         num_chads = len([name for name in os.listdir() if name.startswith('chad_')])
@@ -151,6 +150,7 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
