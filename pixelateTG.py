@@ -159,6 +159,7 @@ def pixel_command(update: Update, context: CallbackContext, dispatcher) -> None:
 # Update the dispatcher to handle the new command
 dispatcher.add_handler(CommandHandler("pixel", lambda update, context: pixel_command(update, context, dispatcher)))
 
+
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
     faces = detect_heads(image)
