@@ -135,13 +135,12 @@ def process_image(photo_path, user_id, file_id, bot):
     return processed_path
 
 # Function to apply an overlay to faces
+# Function to apply an overlay to faces
 def apply_overlay(photo_path, user_id, bot, overlay_name):
     image = cv2.imread(photo_path)
     faces = detect_faces(image)
 
-    overlay_dir = overlay_name  # Assuming the directory name matches the overlay name
-    overlay_files = [f for f in os.listdir(overlay_dir) if os.path.isfile(os.path.join(overlay_dir, f))]
-
+    overlay_files = [f for f in os.listdir() if f.startswith(f'{overlay_name}_')]
     if not overlay_files:
         return None  # or handle the error in an appropriate way
     
@@ -152,9 +151,14 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
         center_x = x + w // 2
         center_y = y + h // 2
 
-        # Select a random overlay file
-        random_overlay_file = random.choice(overlay_files)
-        overlay_path = os.path.join(overlay_dir, random_overlay_file)
+        # Filter overlay files based on the overlay name
+        overlay_files_filtered = [f for f in overlay_files if f.startswith(f'{overlay_name}_')]
+        if not overlay_files_filtered:
+            continue  # or handle the error in an appropriate way
+
+        # Select a random overlay file from the filtered list
+        random_overlay_file = random.choice(overlay_files_filtered)
+        overlay_path = os.path.join(os.getcwd(), random_overlay_file)
 
         overlay = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
         if overlay is None:
@@ -185,6 +189,7 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 # Function to handle button clicks
 def button_callback(update: Update, context: CallbackContext) -> None:
