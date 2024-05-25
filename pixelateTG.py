@@ -108,8 +108,8 @@ def process_option(update: Update, context: CallbackContext, option: str, sessio
     if option.startswith('pixelate'):
         processed_path = process_image(photo_path, user_id, option, context.bot)
     else:
-        overlay_name = option.split('_')[0]
-        processed_path = apply_overlay(photo_path, user_id, context.bot, overlay_name)
+        overlay_name = option.split('_')[1]  # Change index from 0 to 1
+        processed_path = apply_overlay(photo_path, user_id, context.bot, overlay_name)  # Pass overlay_name
 
     if processed_path:
         context.bot.send_photo(chat_id=session_data[session_id]['chat_id'], photo=open(processed_path, 'rb'))
