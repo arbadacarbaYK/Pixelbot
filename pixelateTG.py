@@ -138,10 +138,12 @@ def process_image(photo_path, user_id, file_id, bot):
 def apply_overlay(photo_path, user_id, bot, overlay_name):
     image = cv2.imread(photo_path)
     faces = detect_faces(image)
-    
-    # Load the overlay image
-    overlay = cv2.imread(f'{overlay_name}.png', cv2.IMREAD_UNCHANGED)
-    if overlay is None:
+
+    overlay_dir = overlay_name  # Assuming the directory name matches the overlay name
+
+    overlay_files = [f for f in os.listdir(overlay_dir) if os.path.isfile(os.path.join(overlay_dir, f))]
+
+    if not overlay_files:
         return None  # or handle the error in an appropriate way
     
     resize_factor = RESIZE_FACTORS[overlay_name]
@@ -150,6 +152,15 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
         original_aspect_ratio = overlay.shape[1] / overlay.shape[0]
         center_x = x + w // 2
         center_y = y + h // 2
+
+        # Select a random overlay file
+        random_overlay_file = random.choice(overlay_files)
+        overlay_path = os.path.join(overlay_dir, random_overlay_file)
+
+        overlay = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
+        if overlay is None:
+            continue  # or handle the error in an appropriate way
+
         overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.0 * resize_factor * w)  
         overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.0 * resize_factor * w)
         new_width = int(resize_factor * w)
@@ -175,7 +186,6 @@ def apply_overlay(photo_path, user_id, bot, overlay_name):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
 
 # Function to handle button clicks
 def button_callback(update: Update, context: CallbackContext) -> None:
