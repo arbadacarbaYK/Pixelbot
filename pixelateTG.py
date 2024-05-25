@@ -106,7 +106,17 @@ def process_option(update: Update, context: CallbackContext, option: str, sessio
     processed_path = None
 
     if option.startswith('pixelate'):
-        processed_path = process_image(photo_path, user_id, option, context.bot)
+        # Extract session ID from the option
+        option_parts = option.split('_')
+        if len(option_parts) != 2:
+            return  # Invalid option format
+        session_id_from_option = int(option_parts[1])
+
+        if session_id != session_id_from_option:
+            return  # Session ID mismatch
+
+        # Call process_image function with correct parameters
+        processed_path = process_image(photo_path, user_id, session_id, context.bot)
     else:
         overlay_name = option.split('_')[1]  # Change index from 0 to 1
         processed_path = apply_overlay(photo_path, user_id, context.bot, overlay_name)  # Pass overlay_name
