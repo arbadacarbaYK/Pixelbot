@@ -49,7 +49,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [InlineKeyboardButton("Pixel ⚔️", callback_data=f'pixelate_{session_id}')],
         [InlineKeyboardButton("Liotta 🤣", callback_data=f'liotta_{session_id}')],
-        [InlineKeyboardButton("Skull of Satoshi ☠️☠", callback_data=f'skull_of_satoshi_{session_id}')],
+        [InlineKeyboardButton("Skull of Satoshi ☠️", callback_data=f'skull_of_satoshi_{session_id}')],
         [InlineKeyboardButton("Cats 🐈‍⬛", callback_data=f'cats_overlay_{session_id}')],
         [InlineKeyboardButton("Pepe 🐸", callback_data=f'pepe_overlay_{session_id}')],
         [InlineKeyboardButton("Chad 🏆", callback_data=f'chad_overlay_{session_id}')],
