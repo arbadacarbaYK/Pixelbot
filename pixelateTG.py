@@ -67,11 +67,15 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
 
     return processed_path
 
+# looking for one straight file
+
 def liotta_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'liotta', LIOTTA_RESIZE_FACTOR, bot)
 
 def skull_overlay(photo_path, user_id, bot):
-    return overlay(photo_path, user_id, 'skull_of_satoshi', SKULL_RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'skullofsatoshi', SKULL_RESIZE_FACTOR, bot)
+
+# looking for a random file out of a similar naming
 
 def pepe_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'pepe', PEPE_RESIZE_FACTOR, bot)
