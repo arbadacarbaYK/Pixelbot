@@ -81,44 +81,85 @@ def clowns_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
-    session_id = str(uuid4())  # Generate a unique session ID
-    context.user_data[session_id] = {'state': 'waiting_for_photo'}
+    chat_type = update.effective_chat.type
 
-    file_id = update.message.photo[-1].file_id
-    file = context.bot.get_file(file_id)
-    file_name = file.file_path.split('/')[-1]
-    photo_path = f"downloads/{file_name}"
-    file.download(photo_path)
+    if chat_type == "private":
+        session_id = str(uuid4())  # Generate a unique session ID
+        context.user_data[session_id] = {'state': 'waiting_for_photo'}
 
-    # Check if any faces are detected
-    image = cv2.imread(photo_path)
-    mtcnn = MTCNN()
-    faces = mtcnn.detect_faces(image)
+        file_id = update.message.photo[-1].file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+        photo_path = f"downloads/{file_name}"
+        file.download(photo_path)
 
-    if not faces:
-        # No faces detected, do nothing
-        update.message.reply_text('No faces detected in the image.')
-        return
+        # Check if any faces are detected
+        image = cv2.imread(photo_path)
+        mtcnn = MTCNN()
+        faces = mtcnn.detect_faces(image)
+        
+        if not faces:
+            # No faces detected, do nothing
+            update.message.reply_text('No faces detected in the image.')
+            return
 
-    keyboard = [
-        [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-         InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}'),
-         InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}')],
-        [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
-         InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-         InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-        [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-         InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    context.user_data[session_id]['photo_path'] = photo_path
-    context.user_data[session_id]['user_id'] = update.message.from_user.id
+        keyboard = [
+            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}'),
+             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}')],
+            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
+             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+             InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        context.user_data[session_id]['photo_path'] = photo_path
+        context.user_data[session_id]['user_id'] = update.message.from_user.id
 
-    if update.effective_chat.type == "private":
         update.message.reply_text('Press until happy', reply_markup=reply_markup)
+
+        # Delete the original picture from the chat
         update.message.delete()
-    else:
+
+def pixelate_command(update: Update, context: CallbackContext) -> None:
+    if update.message.reply_to_message and update.message.reply_to_message.photo:
+        session_id = str(uuid4())  # Generate a unique session ID
+        context.user_data[session_id] = {'state': 'waiting_for_photo'}
+
+        file_id = update.message.reply_to_message.photo[-1].file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+        photo_path = f"downloads/{file_name}"
+        file.download(photo_path)
+
+        # Check if any faces are detected
+        image = cv2.imread(photo_path)
+        mtcnn = MTCNN()
+        faces = mtcnn.detect_faces(image)
+
+        if not faces:
+            # No faces detected, do nothing
+            update.message.reply_text('No faces detected in the image.')
+            return
+
+        keyboard = [
+            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}'),
+             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}')],
+            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
+             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+             InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        context.user_data[session_id]['photo_path'] = photo_path
+        context.user_data[session_id]['user_id'] = update.message.from_user.id
+
         update.message.reply_text('Press until happy', reply_markup=reply_markup)
+    else:
+        update.message.reply_text('Please reply to a photo with the /pixel command.')
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
@@ -149,7 +190,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if query.data.startswith('cancel'):
             del context.user_data[session_id]  # Delete session data
-            query.message.delete()  # Remove the message containing the keyboard
+            query.edit_message_reply_markup(reply_markup=None)  # Remove the message containing the keyboard
             return
 
         processed_path = None
@@ -171,15 +212,15 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-            # Keep the keyboard visible by editing the original message's markup
-            query.edit_message_reply_markup(reply_markup=query.message.reply_markup)
 
 def main() -> None:
     updater = Updater(TOKEN)
+
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.photo & ~Filters.command, pixelate_faces))
+    dispatcher.add_handler(CommandHandler("pixel", pixelate_command))
+    dispatcher.add_handler(MessageHandler(Filters.photo & Filters.private, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
 
     updater.start_polling()
