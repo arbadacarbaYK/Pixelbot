@@ -108,68 +108,64 @@ def process_gif(gif_path, session_id, user_id, bot):
     return processed_gif_path
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
-    chat_type = update.effective_chat.type
+    session_id = str(uuid4())  # Generate a unique session ID
+    user_data = context.user_data  # Use user_data for private chats
 
-    if chat_type == "private":
-        session_id = str(uuid4())  # Generate a unique session ID
-        context.user_data[session_id] = {'state': 'waiting_for_photo'}
+    if update.message.photo:  # If the message contains a photo
+        file_id = update.message.photo[-1].file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+        photo_path = f"downloads/{file_name}"
+        file.download(photo_path)
 
-        if update.message.photo:  # If the message contains a photo
-            file_id = update.message.photo[-1].file_id
-            file = context.bot.get_file(file_id)
-            file_name = file.file_path.split('/')[-1]
-            photo_path = f"downloads/{file_name}"
-            file.download(photo_path)
+        # Check if any faces are detected
+        image = cv2.imread(photo_path)
+        mtcnn = MTCNN()
+        faces = mtcnn.detect_faces(image)
 
-            # Check if any faces are detected
-            image = cv2.imread(photo_path)
-            mtcnn = MTCNN()
-            faces = mtcnn.detect_faces(image)
+        if not faces:
+            # No faces detected, do nothing
+            update.message.reply_text('No faces detected in the image.')
+            return
 
-            if not faces:
-                # No faces detected, do nothing
-                update.message.reply_text('No faces detected in the image.')
-                return
+        keyboard = [
+            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
+             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
+            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),                 
+             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),                 
+             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),                 
+             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],  # Add Cancel button
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
-            keyboard = [
-                [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-                 InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}'),
-                 InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_overlay_{session_id}')],
-                [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),                 
-                 InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),                 
-                 InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-                [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),                 
-                 InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],  # Add Cancel button
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            context.user_data[session_id]['photo_path'] = photo_path
-            context.user_data[session_id]['user_id'] = update.message.from_user.id
+        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
 
-            update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+        # Delete the original picture from the chat
+        update.message.delete()
 
-            # Delete the original picture from the chat
-            update.message.delete()
+    elif update.message.document and update.message.document.mime_type == 'image/gif':  # If the message contains a GIF
+        file_id = update.message.document.file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+        gif_path = f"downloads/{file_name}"
+        file.download(gif_path)
 
-        elif update.message.document and update.message.document.mime_type == 'image/gif':  # If the message contains a GIF
-            file_id = update.message.document.file_id
-            file = context.bot.get_file(file_id)
-            file_name = file.file_path.split('/')[-1]
-            gif_path = f"downloads/{file_name}"
-            file.download(gif_path)
+        # Process GIF
+        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
 
-            # Process GIF
-            processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
+        # Send the processed GIF
+        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
 
-            # Send the processed GIF
-            context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
-
-        else:
-            update.message.reply_text('Please send either a photo or a GIF.')
+    else:
+        update.message.reply_text('Please send either a photo or a GIF.')
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
         session_id = str(uuid4())  # Generate a unique session ID
-        context.chat_data[session_id] = {'state': 'waiting_for_photo'}
+        chat_data = context.chat_data  # Use chat_data for group chats
 
         file_id = update.message.reply_to_message.photo[-1].file_id
         file = context.bot.get_file(file_id)
@@ -189,8 +185,8 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
 
         keyboard = [
             [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}'),
-             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}')],
+             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
+             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
             [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
              InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
              InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
@@ -198,8 +194,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        context.chat_data[session_id]['photo_path'] = photo_path
-        context.chat_data[session_id]['chat_id'] = update.message.chat.id
+        chat_data[session_id] = {'photo_path': photo_path, 'chat_id': update.message.chat.id}
 
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
     else:
@@ -209,33 +204,39 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
     session_id = query.data.split('_')[-1]
-    chat_data = context.chat_data.get(session_id)
+    user_data = context.user_data  # For DMs
+    chat_data = context.chat_data  # For group chats
 
-    if chat_data and chat_data['state'] == 'waiting_for_photo':
-        photo_path = chat_data.get('photo_path')
-        chat_id = chat_data.get('chat_id')
+    data = user_data.get(session_id) or chat_data.get(session_id)
+
+    if data:
+        photo_path = data.get('photo_path')
+        user_or_chat_id = data.get('user_id') or data.get('chat_id')
 
         if query.data.startswith('cancel'):
-            del context.chat_data[session_id]  # Delete session data
+            if session_id in user_data:
+                del user_data[session_id]
+            if session_id in chat_data:
+                del chat_data[session_id]
             query.message.delete()  # Remove the message containing the keyboard
             return
 
         processed_path = None
 
         if query.data.startswith('pixelate'):
-            processed_path = process_image(photo_path, chat_id, query.id, context.bot)
+            processed_path = process_image(photo_path, user_or_chat_id, query.id, context.bot)
         elif query.data.startswith('liotta'):
-            processed_path = liotta_overlay(photo_path, chat_id, context.bot)
+            processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('cats_overlay'):
-            processed_path = cats_overlay(photo_path, chat_id, context.bot)
-        elif query.data.startswith('skull_of_satoshi'):
-            processed_path = skull_overlay(photo_path, chat_id, context.bot)
+            processed_path = cats_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query.data.startswith('skull_overlay'):
+            processed_path = skull_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('pepe_overlay'):
-            processed_path = pepe_overlay(photo_path, chat_id, context.bot)
+            processed_path = pepe_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('chad_overlay'):
-            processed_path = chad_overlay(photo_path, chat_id, context.bot)
+            processed_path = chad_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('clowns_overlay'):
-            processed_path = clowns_overlay(photo_path, chat_id, context.bot)
+            processed_path = clowns_overlay(photo_path, user_or_chat_id, context.bot)
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
