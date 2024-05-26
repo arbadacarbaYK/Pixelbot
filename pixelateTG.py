@@ -139,7 +139,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
                  InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),                 
                  InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
                 [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),                 
-                 InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
+                 InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],  # Add Cancel button
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             context.user_data[session_id]['photo_path'] = photo_path
@@ -201,7 +201,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
         context.chat_data[session_id]['photo_path'] = photo_path
         context.chat_data[session_id]['chat_id'] = update.message.chat.id
 
-        update.message.reply_text('Choose an overlay or pixelate the faces:', reply_markup=reply_markup)
+        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
     else:
         update.message.reply_text('This only works as a reply to a picture.')
 
