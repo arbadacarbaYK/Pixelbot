@@ -2,10 +2,11 @@ import os
 import cv2
 import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler, CallbackQueryHandler
+from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
+from telegram.ext import Filters, MessageHandler
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 15
