@@ -145,7 +145,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
             context.user_data[session_id]['photo_path'] = photo_path
             context.user_data[session_id]['user_id'] = update.message.from_user.id
 
-            update.message.reply_text('Choose an overlay or pixelate the faces:', reply_markup=reply_markup)
+            update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
 
             # Delete the original picture from the chat
             update.message.delete()
