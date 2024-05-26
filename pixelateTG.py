@@ -1,12 +1,12 @@
 import os
 import cv2
 import random
+import imageio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler
+from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
-from telegram.ext import Filters, MessageHandler
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 15
@@ -15,7 +15,7 @@ RESIZE_FACTOR = 1.5  # Common resize factor
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
 def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
+    update.message.reply_text('Send me a picture or a GIF, and I will pixelate faces in it!')
 
 def detect_heads(image):
     mtcnn = MTCNN()
@@ -81,6 +81,32 @@ def cats_overlay(photo_path, user_id, bot):
 def clowns_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
 
+def process_image(photo_path, user_id, file_id, bot):
+    image = cv2.imread(photo_path)
+    faces = detect_heads(image)
+
+    def process_face(x, y, w, h):
+        face = image[y:y+h, x:x+w]
+        pixelated_face = cv2.resize(face, (0, 0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR, interpolation=cv2.INTER_NEAREST)
+        image[y:y+h, x:x+w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
+
+    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in faces]
+    wait(futures)
+
+    processed_path = f"processed/{user_id}_{file_id}.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+
+    return processed_path
+
+def process_gif(gif_path, session_id, user_id, bot):
+    # Extract frames from GIF and process each frame
+    frames = imageio.mimread(gif_path)
+    processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
+    # Reconstruct GIF
+    processed_gif_path = f"processed/{user_id}_{session_id}.gif"
+    imageio.mimsave(processed_gif_path, processed_frames)
+    return processed_gif_path
+
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     chat_type = update.effective_chat.type
 
@@ -108,18 +134,18 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
             keyboard = [
                 [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
                  InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}'),
-                 InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}')],
-                [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
-                 InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+                 InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_overlay_{session_id}')],
+                [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),                 
+                 InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),                 
                  InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-                [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+                [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),                 
                  InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             context.user_data[session_id]['photo_path'] = photo_path
             context.user_data[session_id]['user_id'] = update.message.from_user.id
 
-            update.message.reply_text('Press until happy', reply_markup=reply_markup)
+            update.message.reply_text('Choose an overlay or pixelate the faces:', reply_markup=reply_markup)
 
             # Delete the original picture from the chat
             update.message.delete()
@@ -139,16 +165,6 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
 
         else:
             update.message.reply_text('Please send either a photo or a GIF.')
-
-def process_gif(gif_path, user_id, file_id, bot):
-    # Extract frames from GIF and process each frame
-    frames = imageio.mimread(gif_path)
-    processed_frames = [process_image(frame, user_id, file_id, bot) for frame in frames]
-    # Reconstruct GIF
-    processed_gif_path = f"processed/{user_id}_{file_id}.gif"
-    imageio.mimsave(processed_gif_path, processed_frames)
-    return processed_gif_path
-
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
@@ -185,26 +201,9 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
         context.user_data[session_id]['photo_path'] = photo_path
         context.user_data[session_id]['user_id'] = update.message.from_user.id
 
-        update.message.reply_text('Press until happy', reply_markup=reply_markup)
+        update.message.reply_text('Choose an overlay or pixelate the faces:', reply_markup=reply_markup)
     else:
         update.message.reply_text('This only works as a reply to a picture.')
-
-def process_image(photo_path, user_id, file_id, bot):
-    image = cv2.imread(photo_path)
-    faces = detect_heads(image)
-
-    def process_face(x, y, w, h):
-        face = image[y:y+h, x:x+w]
-        pixelated_face = cv2.resize(face, (0, 0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR, interpolation=cv2.INTER_NEAREST)
-        image[y:y+h, x:x+w] = cv2.resize(pixelated_face, (w, h), interpolation=cv2.INTER_NEAREST)
-
-    futures = [executor.submit(process_face, x, y, w, h) for (x, y, w, h) in faces]
-    wait(futures)
-
-    processed_path = f"processed/{user_id}_{file_id}.jpg"
-    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-
-    return processed_path
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
