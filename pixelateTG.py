@@ -6,8 +6,6 @@ from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, Comm
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
-from telegram.ext import Updater
-
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 15
@@ -127,7 +125,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Reply to an image with /pixel to pixelate faces.')
 
 
-def pixel_command(update: Update, context: CallbackContext, dispatcher) -> None:
+def pixel_command(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())  # Generate a unique session ID
     context.user_data[session_id] = {'state': 'waiting_for_photo'}
 
@@ -157,9 +155,6 @@ def pixel_command(update: Update, context: CallbackContext, dispatcher) -> None:
 
     context.user_data[session_id]['photo_path'] = photo_path
     context.user_data[session_id]['user_id'] = update.message.from_user.id
-
-# Update the dispatcher to handle the new command
-dispatcher.add_handler(CommandHandler("pixel", lambda update, context: pixel_command(update, context, dispatcher)))
 
 
 def process_image(photo_path, user_id, file_id, bot):
