@@ -222,7 +222,7 @@ def main() -> None:
 
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("pixel", pixelate_command))
-    dispatcher.add_handler(MessageHandler(Filters.photo & Filters.private, pixelate_faces))
+    dispatcher.add_handler(MessageHandler(Filters.photo & Filters.chat_type.private, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
 
     updater.start_polling()
