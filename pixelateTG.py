@@ -159,7 +159,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
 
         update.message.reply_text('Press until happy', reply_markup=reply_markup)
     else:
-        update.message.reply_text('Please reply to a photo with the /pixel command.')
+        update.message.reply_text('This only works as a reply to a picture.')
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
