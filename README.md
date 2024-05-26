@@ -28,18 +28,17 @@ It will then self-build up all dependencies given in requirements.txt and run th
 
 
 Behaviour in a DM with the bot
-- on cancel but also on first button-press the original pic disappears
-- a keyboard with buttons pops up for that pic
-- choose an option to get an obfuscated version
-- press those buttons until happy with the result
-- forward the best one 
+    on first button-press the original pic disappears
+    a keyboard with buttons pops up 
+    choose an option to get an obfuscated version
+    press those buttons until happy with the result
 
 Behaviour in groupchats where the bot is added
-- bot does not automatically detect faces in pics or react automatically on pics that a shared 
-- any user can choose to reply to a pic with the command /pixel
-- the keyboard with buttons pops up and any user can generate versions by pressing the buttons
-- cancel option removes the buttons and leaves the original pic as is
-- anyone can enjoy and forward their favorite one
+    bot does not detect faces or react to pics
+    unless any user replies to a pic with the command /pixel
+    the keyboard with buttons pops up and every user can use them
+    cancel option removes the buttons (and leaves pic untouched)
+
   
 
 To Do
