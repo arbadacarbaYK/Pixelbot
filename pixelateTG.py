@@ -6,6 +6,8 @@ from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, Comm
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
+from telegram.ext import Updater
+
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
 MAX_THREADS = 15
