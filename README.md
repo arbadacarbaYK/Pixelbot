@@ -27,17 +27,25 @@ It will then self-build up all dependencies given in requirements.txt and run th
 <img width="1241" alt="Screenshot 2023-12-05 at 20 18 47" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/0985eec3-58c4-4837-80fd-762368e10b3f">
 
 
+Behaviour in a DM with the bot
+- on cancel but also on first button-press the original pic disappears
+- a keyboard with buttons pops up for that pic
+- choose an option to get an obfuscated version
+- press those buttons until happy with the result
+- forward the best one 
 
-Done
-- Pepe added
-- Cancel button added
-- now also works in Telegram groupchats (as admin)
-- timeout for each keyboard (dont spam chat after restart of bot)
+Behaviour in groupchats where the bot is added
+- bot does not automatically detect faces in pics or react automatically on pics that a shared 
+- any user can choose to reply to a pic with the command /pixel
+- the keyboard with buttons pops up and any user can generate versions by pressing the buttons
+- cancel option removes the buttons and leaves the original pic as is
+- anyone can enjoy and forward their favorite one
+  
 
 To Do
 - catch more faces
 - support more input formats
-- more masks
+- moooooaaar masks
 
 
-If you like this bot ⚡️tip me [here](https://legend.lnbits.com/lnurlp/link/Fqq872)
+If you like this bot ⚡️tip me [here](LNURL1DP68GURN8GHJ7CN5D9CZUMNV9UH8WETVDSKKKMN0WAHZ7MRWW4EXCUP0X9UXGDEEXQ6XVVM9XUMXGDFCXY6NQS43TRV)
