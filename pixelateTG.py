@@ -185,7 +185,7 @@ def main() -> None:
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.all & Filters.private, pixelate_faces))
+    dispatcher.add_handler(MessageHandler(Filters.all & Filters.private, process_media))
     dispatcher.add_handler(CommandHandler("pixel", pixelate_command))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
 
