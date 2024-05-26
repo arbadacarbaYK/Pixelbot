@@ -191,7 +191,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
              InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
             [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-             InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
+             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],  # Add Cancel button
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         chat_data[session_id] = {'photo_path': photo_path, 'chat_id': update.message.chat.id}
