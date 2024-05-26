@@ -61,15 +61,12 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
 
     return processed_path
 
-# looking for one straight file
-
+# Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
 
 def skull_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'skullofsatoshi', RESIZE_FACTOR, bot)
-
-# looking for a random file out of a similar naming
 
 def pepe_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'pepe', RESIZE_FACTOR, bot)
@@ -97,14 +94,13 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     image = cv2.imread(photo_path)
     mtcnn = MTCNN()
     faces = mtcnn.detect_faces(image)
-    
-    chat_type = update.effective_chat.type
-    if chat_type == "private":  # Direct message
-        if not faces:
-            # No faces detected, do nothing
-            return
 
-        keyboard = [
+    if not faces:
+        # No faces detected, do nothing
+        update.message.reply_text('No faces detected in the image.')
+        return
+
+    keyboard = [
         [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
          InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}'),
          InlineKeyboardButton("☠️ Skull", callback_data=f'skull_of_satoshi_{session_id}')],
@@ -114,14 +110,15 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
          InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
     ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    context.user_data[session_id]['photo_path'] = photo_path
+    context.user_data[session_id]['user_id'] = update.message.from_user.id
+
+    if update.effective_chat.type == "private":
         update.message.reply_text('Press until happy', reply_markup=reply_markup)
-
-        context.user_data[session_id]['photo_path'] = photo_path
-        context.user_data[session_id]['user_id'] = update.message.from_user.id
-        # Delete the original picture from the chat
         update.message.delete()
-
+    else:
+        update.message.reply_text('Press until happy', reply_markup=reply_markup)
 
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
@@ -139,7 +136,6 @@ def process_image(photo_path, user_id, file_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
