@@ -169,7 +169,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
         session_id = str(uuid4())  # Generate a unique session ID
-        context.user_data[session_id] = {'state': 'waiting_for_photo'}
+        context.chat_data[session_id] = {'state': 'waiting_for_photo'}
 
         file_id = update.message.reply_to_message.photo[-1].file_id
         file = context.bot.get_file(file_id)
@@ -198,8 +198,8 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("CANCEL", callback_data=f'cancel_{session_id}')],  # Add Cancel button
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        context.user_data[session_id]['photo_path'] = photo_path
-        context.user_data[session_id]['user_id'] = update.message.from_user.id
+        context.chat_data[session_id]['photo_path'] = photo_path
+        context.chat_data[session_id]['chat_id'] = update.message.chat.id
 
         update.message.reply_text('Choose an overlay or pixelate the faces:', reply_markup=reply_markup)
     else:
@@ -209,37 +209,36 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
     session_id = query.data.split('_')[-1]
-    user_data = context.user_data.get(session_id)
+    chat_data = context.chat_data.get(session_id)
 
-    if user_data and user_data['state'] == 'waiting_for_photo':
-        photo_path = user_data.get('photo_path')
-        user_id = user_data.get('user_id')
+    if chat_data and chat_data['state'] == 'waiting_for_photo':
+        photo_path = chat_data.get('photo_path')
+        chat_id = chat_data.get('chat_id')
 
         if query.data.startswith('cancel'):
-            del context.user_data[session_id]  # Delete session data
+            del context.chat_data[session_id]  # Delete session data
             query.message.delete()  # Remove the message containing the keyboard
             return
 
         processed_path = None
 
         if query.data.startswith('pixelate'):
-            processed_path = process_image(photo_path, user_id, query.id, context.bot)
+            processed_path = process_image(photo_path, chat_id, query.id, context.bot)
         elif query.data.startswith('liotta'):
-            processed_path = liotta_overlay(photo_path, user_id, context.bot)
+            processed_path = liotta_overlay(photo_path, chat_id, context.bot)
         elif query.data.startswith('cats_overlay'):
-            processed_path = cats_overlay(photo_path, user_id, context.bot)
+            processed_path = cats_overlay(photo_path, chat_id, context.bot)
         elif query.data.startswith('skull_of_satoshi'):
-            processed_path = skull_overlay(photo_path, user_id, context.bot)
+            processed_path = skull_overlay(photo_path, chat_id, context.bot)
         elif query.data.startswith('pepe_overlay'):
-            processed_path = pepe_overlay(photo_path, user_id, context.bot)
+            processed_path = pepe_overlay(photo_path, chat_id, context.bot)
         elif query.data.startswith('chad_overlay'):
-            processed_path = chad_overlay(photo_path, user_id, context.bot)
+            processed_path = chad_overlay(photo_path, chat_id, context.bot)
         elif query.data.startswith('clowns_overlay'):
-            processed_path = clowns_overlay(photo_path, user_id, context.bot)
+            processed_path = clowns_overlay(photo_path, chat_id, context.bot)
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-
 
 def main() -> None:
     updater = Updater(TOKEN)
