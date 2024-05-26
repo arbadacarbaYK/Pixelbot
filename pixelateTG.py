@@ -123,6 +123,9 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         # Delete the original picture from the chat
         update.message.delete()
 
+    else:
+        update.message.reply_text('This feature is only available in private chats.')
+
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
         session_id = str(uuid4())  # Generate a unique session ID
@@ -130,7 +133,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
 
         file_id = update.message.reply_to_message.photo[-1].file_id
         file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
+        file_name = file.file_path.split('/')[-1
         photo_path = f"downloads/{file_name}"
         file.download(photo_path)
 
@@ -214,7 +217,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
 
-
 def main() -> None:
     updater = Updater(TOKEN)
 
@@ -222,7 +224,7 @@ def main() -> None:
 
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("pixel", pixelate_command))
-    dispatcher.add_handler(MessageHandler(Filters.photo & Filters.chat_type.private, pixelate_faces))
+    dispatcher.add_handler(MessageHandler(Filters.photo & Filters.private, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
 
     updater.start_polling()
