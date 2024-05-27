@@ -207,6 +207,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     user_data = context.user_data  # For DMs
     chat_data = context.chat_data  # For group chats
 
+    # Try to get session data from user_data, fallback to chat_data if not found
     data = user_data.get(session_id) or chat_data.get(session_id)
 
     if data:
@@ -240,6 +241,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+
 
 def main() -> None:
     updater = Updater(TOKEN)
