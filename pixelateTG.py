@@ -14,13 +14,16 @@ PIXELATION_FACTOR = 0.04
 RESIZE_FACTOR = 1.5  # Common resize factor
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
+# Load the Haar Cascade classifier for face detection
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture or a GIF, and I will pixelate faces in it!')
 
 def detect_heads(image):
-    mtcnn = MTCNN()
-    faces = mtcnn.detect_faces(image)
-    head_boxes = [(face['box'][0], face['box'][1], int(RESIZE_FACTOR * face['box'][2]), int(RESIZE_FACTOR * face['box'][3])) for face in faces]
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    head_boxes = [(x, y, w, h) for (x, y, w, h) in faces]
     return head_boxes
 
 def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
