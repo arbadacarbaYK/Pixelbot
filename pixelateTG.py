@@ -25,6 +25,7 @@ def detect_heads(image):
     faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
     head_boxes = [(x, y, w, h) for (x, y, w, h) in faces]
     return head_boxes
+    
 
 def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     image = cv2.imread(photo_path)
