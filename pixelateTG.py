@@ -42,7 +42,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
         new_width = int(resize_factor * w)
         new_height = int(new_width / original_aspect_ratio)
-        
+
         # Resize the overlay image to match the size of the ROI
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
@@ -69,6 +69,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
