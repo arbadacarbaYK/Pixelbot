@@ -24,7 +24,7 @@ def detect_heads(image):
     return head_boxes
 
 def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
-    image = cv2.imread(photo_path, cv2.IMREAD_COLOR)
+    image = cv2.imread(photo_path)
     heads = detect_heads(image)
 
     for (x, y, w, h) in heads:
@@ -42,12 +42,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
         new_width = int(resize_factor * w)
         new_height = int(new_width / original_aspect_ratio)
-
-        # Resize the overlay image to match the size of the ROI
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
-
-        # Reshape the overlay_image_resized
-        overlay_image_resized = overlay_image_resized[:, :, ::-1]
 
         # Ensure the overlay starts within the image
         overlay_x = max(0, overlay_x)
