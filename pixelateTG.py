@@ -34,6 +34,8 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         random_overlay = random.choice(overlay_files)
         overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
         original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
+
+        # Calculate the overlay position and size
         center_x = x + w // 2
         center_y = y + h // 2
         overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.1 * resize_factor * w)
@@ -41,16 +43,20 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         new_width = int(resize_factor * w)
         new_height = int(new_width / original_aspect_ratio)
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+        # Ensure the overlay starts within the image
         overlay_x = max(0, overlay_x)
         overlay_y = max(0, overlay_y)
+
+        # Apply the overlay
         roi_start_x = max(0, overlay_x)
         roi_start_y = max(0, overlay_y)
         roi_end_x = min(image.shape[1], overlay_x + new_width)
         roi_end_y = min(image.shape[0], overlay_y + new_height)
         image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
             overlay_image_resized[
-                roi_start_y - overlay_y : roi_end_y - overlay_y,
-                roi_start_x - overlay_x : roi_end_x - overlay_x,
+                roi_start_y - overlay_y: roi_end_y - overlay_y,
+                roi_start_x - overlay_x: roi_end_x - overlay_x,
                 :3
             ] * (overlay_image_resized[:, :, 3:] / 255.0) +
             image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
