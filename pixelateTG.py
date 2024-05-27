@@ -5,7 +5,6 @@ import imageio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
 from concurrent.futures import ThreadPoolExecutor, wait
-from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
 
 TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
