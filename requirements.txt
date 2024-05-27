@@ -1,7 +1,5 @@
 opencv-python
 python-telegram-bot==13.8
 mtcnn
-numpy
-opencv-python
 tensorflow
 imageio
