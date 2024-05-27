@@ -253,6 +253,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
 
 
+
 def main() -> None:
     updater = Updater(TOKEN)
 
