@@ -62,7 +62,6 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
 
     return processed_path
 
-
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
