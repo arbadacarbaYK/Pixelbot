@@ -210,13 +210,11 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
     session_id = query.data.split('_')[-1]
-    user_data = context.user_data  # For DMs
-    chat_data = context.chat_data  # For group chats
 
     if context.user_data:
-        data = user_data.get(session_id)
+        data = context.user_data.get(session_id)
     elif context.chat_data:
-        data = chat_data.get(session_id)
+        data = context.chat_data.get(session_id)
     else:
         data = None
 
@@ -225,10 +223,10 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         user_or_chat_id = data.get('user_id') or data.get('chat_id')
 
         if query.data.startswith('cancel'):
-            if context.user_data and session_id in user_data:
-                del user_data[session_id]
-            elif context.chat_data and session_id in chat_data:
-                del chat_data[session_id]
+            if context.user_data and session_id in context.user_data:
+                del context.user_data[session_id]
+            elif context.chat_data and session_id in context.chat_data:
+                del context.chat_data[session_id]
             query.message.delete()  # Remove the message containing the keyboard
             return
 
@@ -251,6 +249,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+
 
 
 def main() -> None:
