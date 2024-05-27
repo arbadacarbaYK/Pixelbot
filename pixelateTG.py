@@ -34,8 +34,6 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         random_overlay = random.choice(overlay_files)
         overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
         original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
-
-        # Calculate the overlay position and size
         center_x = x + w // 2
         center_y = y + h // 2
         overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.1 * resize_factor * w)
@@ -43,20 +41,16 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         new_width = int(resize_factor * w)
         new_height = int(new_width / original_aspect_ratio)
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
-
-        # Ensure the overlay starts within the image
         overlay_x = max(0, overlay_x)
         overlay_y = max(0, overlay_y)
-
-        # Apply the overlay
         roi_start_x = max(0, overlay_x)
         roi_start_y = max(0, overlay_y)
         roi_end_x = min(image.shape[1], overlay_x + new_width)
         roi_end_y = min(image.shape[0], overlay_y + new_height)
         image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
             overlay_image_resized[
-                roi_start_y - overlay_y: roi_end_y - overlay_y,
-                roi_start_x - overlay_x: roi_end_x - overlay_x,
+                roi_start_y - overlay_y : roi_end_y - overlay_y,
+                roi_start_x - overlay_x : roi_end_x - overlay_x,
                 :3
             ] * (overlay_image_resized[:, :, 3:] / 255.0) +
             image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
@@ -210,23 +204,20 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
     session_id = query.data.split('_')[-1]
+    user_data = context.user_data  # For DMs
+    chat_data = context.chat_data  # For group chats
 
-    if context.user_data:
-        data = context.user_data.get(session_id)
-    elif context.chat_data:
-        data = context.chat_data.get(session_id)
-    else:
-        data = None
+    data = user_data.get(session_id) or chat_data.get(session_id)
 
     if data:
         photo_path = data.get('photo_path')
         user_or_chat_id = data.get('user_id') or data.get('chat_id')
 
         if query.data.startswith('cancel'):
-            if context.user_data and session_id in context.user_data:
-                del context.user_data[session_id]
-            elif context.chat_data and session_id in context.chat_data:
-                del context.chat_data[session_id]
+            if session_id in user_data:
+                del user_data[session_id]
+            if session_id in chat_data:
+                del chat_data[session_id]
             query.message.delete()  # Remove the message containing the keyboard
             return
 
@@ -249,8 +240,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-
-
 
 def main() -> None:
     updater = Updater(TOKEN)
