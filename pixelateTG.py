@@ -23,8 +23,8 @@ def detect_heads(image):
     head_boxes = [(face['box'][0], face['box'][1], int(RESIZE_FACTOR * face['box'][2]), int(RESIZE_FACTOR * face['box'][3])) for face in faces]
     return head_boxes
 
-def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
-    image = cv2.imread(photo_path)
+ef overlay(photo_path, user_id, overlay_type, resize_factor, bot):
+    image = cv2.imread(photo_path, cv2.IMREAD_COLOR)
     heads = detect_heads(image)
 
     for (x, y, w, h) in heads:
@@ -45,6 +45,9 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
 
         # Resize the overlay image to match the size of the ROI
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+        # Reshape the overlay_image_resized
+        overlay_image_resized = overlay_image_resized[:, :, ::-1]
 
         # Ensure the overlay starts within the image
         overlay_x = max(0, overlay_x)
