@@ -23,7 +23,7 @@ def detect_heads(image):
     head_boxes = [(face['box'][0], face['box'][1], int(RESIZE_FACTOR * face['box'][2]), int(RESIZE_FACTOR * face['box'][3])) for face in faces]
     return head_boxes
 
-ef overlay(photo_path, user_id, overlay_type, resize_factor, bot):
+def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     image = cv2.imread(photo_path, cv2.IMREAD_COLOR)
     heads = detect_heads(image)
 
