@@ -1,5 +1,5 @@
 # Pixelbot
-A Telegram bot that replaces faces with pixels, skull of satoshi, liotta faces or random cat-pics and runs via github actions.
+A Telegram bot that replaces faces with pixels, skull of satoshi, liotta faces, clowns or random cat-pics and runs via github actions.
 https://t.me/Pixelatebot  
 
 
@@ -8,7 +8,7 @@ https://t.me/Pixelatebot
 <img width="443" alt="Screenshot 2023-12-07 at 13 48 05" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/50def6b9-a0d5-4ad4-ab77-064dccd7fe71">
 <img width="443" alt="photo_2024-05-24_22-47-22" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/5d0eeab2-dad0-46d1-91a6-b5b4d7ab7b44">
 <img width="443" alt="Screenshot 2023-12-07 at 12 48 05" src=https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/1d9a3f17-f87e-4cf7-9cf6-8541bb4bc0e5">
-
+<img width="443" alt="Screenshot 2023-12-07 at 12 48 05" src=https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/7b7ad461-dd32-418f-9da4-f66426d1284c">
 
 
 # Install
@@ -50,4 +50,4 @@ To Do
 - moooooaaar masks
 
 
-If you like this bot ⚡️tip me [here](LNURL1DP68GURN8GHJ7CN5D9CZUMNV9UH8WETVDSKKKMN0WAHZ7MRWW4EXCUP0X9UXGDEEXQ6XVVM9XUMXGDFCXY6NQS43TRV)
+If you like this bot ⚡️tip me [here](https://lnurlpay.com/LNURL1DP68GURN8GHJ7CN5D9CZUMNV9UH8WETVDSKKKMN0WAHZ7MRWW4EXCUP0X9UXGDEEXQ6XVVM9XUMXGDFCXY6NQS43TRV)
