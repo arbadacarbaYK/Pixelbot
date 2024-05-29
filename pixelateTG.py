@@ -97,7 +97,7 @@ def cats_overlay(photo_path, user_id, bot):
 def clowns_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
 
-Yvette, [29.05.24 21:03]
+
 def process_gif(gif_path, session_id, user_id, bot):
     frames = imageio.mimread(gif_path)
     processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
@@ -170,7 +170,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
             update.message.reply_text('No faces detected in the image.')
             return
 
-Yvette, [29.05.24 21:03]
+
 keyboard = [
             [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
              InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
