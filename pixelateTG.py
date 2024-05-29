@@ -95,14 +95,9 @@ def cats_overlay(photo_path, user_id):
 def clowns_overlay(photo_path, user_id):
     return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR)
 
-def process_gif(gif_path, session_id, user_id):
+def process_gif(gif_path, session_id, user_id, bot):
     frames = imageio.mimread(gif_path)
-    processed_frames = []
-
-    for frame in frames:
-        processed_frame = process_image(frame, user_id, session_id)
-        processed_frames.append(processed_frame)
-
+    processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
     processed_gif_path = f"processed/{user_id}_{session_id}.gif"
     imageio.mimsave(processed_gif_path, processed_frames)
     return processed_gif_path
@@ -132,48 +127,13 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     user_data = context.user_data
 
     if update.message.photo:
-        # Handle photos
-        file_id = update.message.photo[-1].file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        photo_path = f"downloads/{file_name}"
-        file.download(photo_path)
-
-        image = cv2.imread(photo_path)
-        faces = detect_heads(image)
-
-        if not faces:
-            update.message.reply_text('No faces detected in the image.')
-            return
-
-        keyboard = [
-            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
-             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
-            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
-             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
-
-        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-        update.message.delete()
+        # Your existing code for handling photos...
 
     elif update.message.document and update.message.document.mime_type == 'image/gif':
-        # Handle GIFs
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        gif_path = f"downloads/{file_name}"
-        file.download(gif_path)
-
-        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
+        # Your existing code for handling GIFs...
+        processed_gif_path = process_gif(gif_path, session_id, update.message.from_user.id, context.bot)
         context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
 
-        os.remove(gif_path)  # Remove the temporary GIF file
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
 
@@ -263,7 +223,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         processed_path = None
 
         if query.data.startswith('pixelate'):
-            processed_path = process_image(photo_path, user_or_chat_id, query.id, context.bot)
+            processed_path = process_image(photo_path, user_or_chat_id, session_id, context.bot)
         elif query.data.startswith('liotta'):
             processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('cats_overlay'):
@@ -279,6 +239,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+
 
 def main() -> None:
     updater = Updater(TOKEN)
