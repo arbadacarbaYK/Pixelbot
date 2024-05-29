@@ -33,6 +33,11 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
             continue
         random_overlay = random.choice(overlay_files)
         overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
+        
+        # Ensure overlay image has an alpha channel (RGBA)
+        if overlay_image.shape[2] == 3:  # If overlay image is missing alpha channel
+            overlay_image = cv2.cvtColor(overlay_image, cv2.COLOR_BGR2BGRA)
+
         original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
         center_x = x + w // 2
         center_y = y + h // 2
@@ -47,6 +52,13 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         roi_start_y = max(0, overlay_y)
         roi_end_x = min(image.shape[1], overlay_x + new_width)
         roi_end_y = min(image.shape[0], overlay_y + new_height)
+        
+        # Ensure overlay and ROI have compatible shapes
+        overlay_shape = overlay_image_resized.shape[:2]
+        roi_shape = (roi_end_y - roi_start_y, roi_end_x - roi_start_x)
+        if overlay_shape != roi_shape:
+            overlay_image_resized = cv2.resize(overlay_image_resized, roi_shape[::-1], interpolation=cv2.INTER_AREA)
+
         image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
             overlay_image_resized[
                 roi_start_y - overlay_y : roi_end_y - overlay_y,
@@ -61,6 +73,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     return processed_path
+
 
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
