@@ -186,6 +186,26 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('This only works as a reply to a picture.')
 
+def process_image(photo_path, user_id, session_id, bot):
+    image = cv2.imread(photo_path)
+    faces = detect_heads(image)
+
+    for (x, y, w, h) in faces:
+        # Define the region of interest (ROI)
+        roi = image[y:y+h, x:x+w]
+
+        # Apply pixelation to the ROI
+        roi = cv2.resize(roi, (PIXELATION_FACTOR, PIXELATION_FACTOR), interpolation=cv2.INTER_NEAREST)
+        roi = cv2.resize(roi, (w, h), interpolation=cv2.INTER_NEAREST)
+
+        # Replace the original face region with the pixelated ROI
+        image[y:y+h, x:x+w] = roi
+
+    processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+    return processed_path
+
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
