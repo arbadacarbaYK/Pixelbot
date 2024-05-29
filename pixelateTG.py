@@ -58,10 +58,6 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         # Adjust the overlay region to fit within the image
         overlay_image_resized = overlay_image_resized[:roi_end_y - roi_start_y, :roi_end_x - roi_start_x]
 
-        # Ensure the overlay image and the ROI have the same dimensions
-        if overlay_image_resized.shape[0] != (roi_end_y - roi_start_y) or overlay_image_resized.shape[1] != (roi_end_x - roi_start_x):
-            continue
-
         # Handle the alpha channel for transparency
         alpha_mask = overlay_image_resized[:, :, 3] / 255.0
         for c in range(0, 3):
@@ -255,6 +251,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+
 
 def main() -> None:
     updater = Updater(TOKEN)
