@@ -170,8 +170,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
             update.message.reply_text('No faces detected in the image.')
             return
 
-
-keyboard = [
+        keyboard = [
             [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
              InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
              InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
@@ -187,6 +186,7 @@ keyboard = [
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
     else:
         update.message.reply_text('This only works as a reply to a picture.')
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
