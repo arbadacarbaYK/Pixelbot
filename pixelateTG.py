@@ -105,8 +105,7 @@ def process_gif(gif_path, session_id, user_id, bot):
     imageio.mimsave(processed_gif_path, processed_frames)
     return processed_gif_path
 
-def pixelate_faces(update: Update, context: CallbackContext) -> None:
-    session_id = str(uuid4())
+def pixelate_faces(update: Update, context: CallbackContext, session_id: str) -> None:
     user_data = context.user_data
 
     if update.message.photo:
@@ -151,6 +150,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
 
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
+
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
@@ -211,7 +211,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         processed_path = None
 
         if query.data.startswith('pixelate'):
-            processed_path = pixelate_faces(photo_path, user_or_chat_id, context.bot)
+            processed_path = pixelate_faces(photo_path, user_or_chat_id, session_id, context.bot)
         elif query.data.startswith('liotta'):
             processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('cats_overlay'):
