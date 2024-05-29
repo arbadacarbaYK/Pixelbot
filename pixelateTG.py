@@ -77,7 +77,6 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
 
-
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
