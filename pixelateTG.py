@@ -1,4 +1,3 @@
-Yvette, [29.05.24 21:03]
 import os
 import cv2
 import random
