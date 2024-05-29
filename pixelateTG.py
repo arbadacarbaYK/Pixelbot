@@ -38,7 +38,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         # Calculate the new dimensions
         new_width = int(resize_factor * w)
         new_height = int(new_width / original_aspect_ratio)
-        
+
         # Ensure the overlay is centered on the face
         center_x = x + w // 2
         center_y = y + h // 2
@@ -46,20 +46,34 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         start_y = max(center_y - new_height // 2, 0)
         end_x = min(start_x + new_width, image.shape[1])
         end_y = min(start_y + new_height, image.shape[0])
-        
+
         # Adjust the new dimensions to fit within the image boundaries
         overlay_width = end_x - start_x
         overlay_height = end_y - start_y
-        
+
         # Resize the overlay image to match the adjusted dimensions
         overlay_image_resized = cv2.resize(overlay_image, (overlay_width, overlay_height), interpolation=cv2.INTER_AREA)
+
+        # Calculate the regions of interest
+        roi_start_x = max(0, center_x - new_width // 2)
+        roi_start_y = max(0, center_y - new_height // 2)
+        roi_end_x = min(image.shape[1], roi_start_x + overlay_width)
+        roi_end_y = min(image.shape[0], roi_start_y + overlay_height)
         
+        # Adjust resized overlay if it goes out of bounds
+        resized_overlay_start_x = 0 if start_x >= 0 else abs(start_x)
+        resized_overlay_start_y = 0 if start_y >= 0 else abs(start_y)
+        resized_overlay_width = overlay_width if end_x <= image.shape[1] else overlay_image_resized.shape[1] - resized_overlay_start_x
+        resized_overlay_height = overlay_height if end_y <= image.shape[0] else overlay_image_resized.shape[0] - resized_overlay_start_y
+
         # Blend the overlay onto the image
         try:
-            alpha_mask = overlay_image_resized[:, :, 3] / 255.0
+            alpha_mask = overlay_image_resized[resized_overlay_start_y:resized_overlay_start_y + resized_overlay_height, resized_overlay_start_x:resized_overlay_start_x + resized_overlay_width, 3] / 255.0
             for c in range(3):
-                image[start_y:end_y, start_x:end_x, c] = (alpha_mask * overlay_image_resized[:, :, c] +
-                                                          (1 - alpha_mask) * image[start_y:end_y, start_x:end_x, c])
+                image[roi_start_y:roi_start_y + resized_overlay_height, roi_start_x:roi_start_x + resized_overlay_width, c] = (
+                    alpha_mask * overlay_image_resized[resized_overlay_start_y:resized_overlay_start_y + resized_overlay_height, resized_overlay_start_x:resized_overlay_start_x + resized_overlay_width, c] +
+                    (1 - alpha_mask) * image[roi_start_y:roi_start_y + resized_overlay_height, roi_start_x:roi_start_x + resized_overlay_width, c]
+                )
         except ValueError as e:
             print(f"Error blending overlay: {e}")
             continue
@@ -67,6 +81,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     processed_path = f"processed/{user_id}_{overlay_type}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
+
 
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
