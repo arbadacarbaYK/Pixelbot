@@ -1,3 +1,4 @@
+Yvette, [29.05.24 21:03]
 import os
 import cv2
 import random
@@ -97,7 +98,7 @@ def cats_overlay(photo_path, user_id, bot):
 def clowns_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
 
-
+Yvette, [29.05.24 21:03]
 def process_gif(gif_path, session_id, user_id, bot):
     frames = imageio.mimread(gif_path)
     processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
@@ -105,7 +106,8 @@ def process_gif(gif_path, session_id, user_id, bot):
     imageio.mimsave(processed_gif_path, processed_frames)
     return processed_gif_path
 
-def pixelate_faces(update: Update, context: CallbackContext, session_id: str) -> None:
+def pixelate_faces(update: Update, context: CallbackContext) -> None:
+    session_id = str(uuid4())
     user_data = context.user_data
 
     if update.message.photo:
@@ -151,7 +153,6 @@ def pixelate_faces(update: Update, context: CallbackContext, session_id: str) ->
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
 
-
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
         session_id = str(uuid4())
@@ -170,7 +171,8 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
             update.message.reply_text('No faces detected in the image.')
             return
 
-        keyboard = [
+Yvette, [29.05.24 21:03]
+keyboard = [
             [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
              InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
              InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
@@ -186,7 +188,6 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
     else:
         update.message.reply_text('This only works as a reply to a picture.')
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -211,7 +212,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         processed_path = None
 
         if query.data.startswith('pixelate'):
-            processed_path = pixelate_faces(photo_path, user_or_chat_id, session_id, context.bot)
+            processed_path = process_image(photo_path, user_or_chat_id, query.id, context.bot)
         elif query.data.startswith('liotta'):
             processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('cats_overlay'):
@@ -243,4 +244,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
     
