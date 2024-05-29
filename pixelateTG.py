@@ -138,6 +138,10 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
         update.message.delete()
 
+        # Check if it's a private chat, if yes, call pixelate_command
+        if update.message.chat.type == 'private':
+            pixelate_command(update, context)
+
     elif update.message.document and update.message.document.mime_type == 'image/gif':
         file_id = update.message.document.file_id
         file = context.bot.get_file(file_id)
@@ -152,6 +156,9 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Please send either a photo or a GIF.')
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
+    # Check if it's a private chat, if not, retrieve the chat id from the update
+    chat_id = update.message.chat_id if update.message.chat.type != 'private' else context.user_data[session_id]['user_id']
+
     if update.message.reply_to_message and update.message.reply_to_message.photo:
         session_id = str(uuid4())
         chat_data = context.chat_data
@@ -180,11 +187,12 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        chat_data[session_id] = {'photo_path': photo_path, 'chat_id': update.message.chat.id}
+        chat_data[session_id] = {'photo_path': photo_path, 'chat_id': chat_id}
 
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
     else:
         update.message.reply_text('This only works as a reply to a picture.')
+
 
 def process_image(photo_path, user_id, session_id, bot):
     image = cv2.imread(photo_path)
@@ -254,7 +262,7 @@ def main() -> None:
 
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("pixel", pixelate_command))
-    dispatcher.add_handler(MessageHandler(Filters.photo & Filters.private, pixelate_faces))
+    dispatcher.add_handler(MessageHandler(Filters.photo, pixelate_faces))  # Removed the filter for private chats
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
 
     updater.start_polling()
