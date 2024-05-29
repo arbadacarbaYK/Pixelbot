@@ -99,10 +99,16 @@ def clowns_overlay(photo_path, user_id, bot):
 
 def process_gif(gif_path, session_id, user_id, bot):
     frames = imageio.mimread(gif_path)
-    processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
+    processed_frames = []
+
+    for frame in frames:
+        processed_frame = process_image(frame, user_id, session_id, bot)
+        processed_frames.append(cv2.imread(processed_frame))
+
     processed_gif_path = f"processed/{user_id}_{session_id}.gif"
     imageio.mimsave(processed_gif_path, processed_frames)
     return processed_gif_path
+
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
@@ -192,8 +198,12 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('This only works as a reply to a picture.')
 
-def process_image(photo_path, user_id, session_id, bot):
-    image = cv2.imread(photo_path)
+def process_image(photo, user_id, session_id, bot):
+    if isinstance(photo, str):  # If photo_path is a file path
+        image = cv2.imread(photo)
+    else:  # If photo_path is an image array (frame of the GIF)
+        image = photo
+
     faces = detect_heads(image)
 
     for (x, y, w, h) in faces:
@@ -211,6 +221,7 @@ def process_image(photo_path, user_id, session_id, bot):
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
+
 
 
 def button_callback(update: Update, context: CallbackContext) -> None:
