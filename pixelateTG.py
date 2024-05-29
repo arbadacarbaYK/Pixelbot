@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv  # Import the load_dotenv function from python-dotenv
 import cv2
 import random
 import imageio
@@ -8,7 +9,10 @@ from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
 
-TOKEN = os.environ['TELEGRAM_BOT_TOKEN']
+# Load environment variables from .env file
+load_dotenv()
+
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Get the Telegram bot token from the environment variable
 MAX_THREADS = 15
 PIXELATION_FACTOR = 0.04
 RESIZE_FACTOR = 1.5  # Common resize factor
