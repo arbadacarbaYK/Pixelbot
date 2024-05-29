@@ -196,11 +196,11 @@ def process_image(photo_path, user_id, session_id, bot):
 
         # Apply pixelation to the ROI
         pixelation_size = int(PIXELATION_FACTOR * min(w, h))
-        roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
-        roi = cv2.resize(roi, (w, h), interpolation=cv2.INTER_NEAREST)
+        pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
+        pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
 
         # Replace the original face region with the pixelated ROI
-        image[y:y+h, x:x+w] = roi
+        image[y:y+h, x:x+w] = pixelated_roi
 
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
