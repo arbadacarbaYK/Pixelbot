@@ -206,8 +206,6 @@ def process_image(photo_path, user_id, session_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
 
-
-
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
