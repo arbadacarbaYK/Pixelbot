@@ -138,28 +138,27 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         mtcnn = MTCNN()
         faces = mtcnn.detect_faces(image)
 
-        if not faces:
-            # No faces detected, do nothing
-            update.message.reply_text('No faces detected in the image.')
+        if not faces:  # No faces detected
+            update.message.reply_text("Sorry, I couldn't detect any faces in this image.")
             return
 
+        # Send keyboard with overlay options
         keyboard = [
-            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
-             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
-            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),                 
-             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),                 
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),                 
-             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],  # Add Cancel button
+            [
+                InlineKeyboardButton("Pixelate", callback_data=f"pixel_{session_id}"),
+                InlineKeyboardButton("Liotta", callback_data=f"liotta_{session_id}"),
+                InlineKeyboardButton("Skull", callback_data=f"skull_{session_id}"),
+            ],
+            [
+                InlineKeyboardButton("Pepe", callback_data=f"pepe_{session_id}"),
+                InlineKeyboardButton("Chad", callback_data=f"chad_{session_id}"),
+                InlineKeyboardButton("Cats", callback_data=f"cats_{session_id}"),
+                InlineKeyboardButton("Clowns", callback_data=f"clowns_{session_id}"),
+            ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
-        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-
-        # Delete the original picture from the chat
-        update.message.delete()
+        update.message.reply_text('Select an overlay option:', reply_markup=reply_markup)
 
     elif update.message.document and update.message.document.mime_type == 'image/gif':  # If the message contains a GIF
         file_id = update.message.document.file_id
@@ -168,117 +167,43 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         gif_path = f"downloads/{file_name}"
         file.download(gif_path)
 
-        # Process GIF
-        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
+        # Process the GIF asynchronously
+        context.bot.send_message(update.effective_chat.id, "Processing the GIF, this may take a while...")
+        executor.submit(process_gif, gif_path, session_id, update.effective_user.id, context.bot)
 
-        # Send the processed GIF
-        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
+    else:  # Unsupported file type
+        update.message.reply_text("Sorry, I can only process photos and GIFs.")
 
-    else:
-        update.message.reply_text('Please send either a photo or a GIF.')
-
-def pixelate_command(update: Update, context: CallbackContext) -> None:
-    if update.message.reply_to_message and update.message.reply_to_message.photo:
-        session_id = str(uuid4())  # Generate a unique session ID
-        chat_data = context.chat_data  # Use chat_data for group chats
-
-        file_id = update.message.reply_to_message.photo[-1].file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        photo_path = f"downloads/{file_name}"
-        file.download(photo_path)
-
-        # Check if any faces are detected
-        image = cv2.imread(photo_path)
-        mtcnn = MTCNN()
-        faces = mtcnn.detect_faces(image)
-
-        if not faces:
-            # No faces detected, do nothing
-            update.message.reply_text('No faces detected in the image.')
-            return
-
-        keyboard = [
-            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
-             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
-            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),                 
-             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),                 
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),                 
-             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],  # Add Cancel button
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        chat_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
-
-        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-
-    elif update.message.reply_to_message and update.message.reply_to_message.document and update.message.reply_to_message.document.mime_type == 'image/gif':
-        session_id = str(uuid4())  # Generate a unique session ID
-        chat_data = context.chat_data  # Use chat_data for group chats
-
-        file_id = update.message.reply_to_message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        gif_path = f"downloads/{file_name}"
-        file.download(gif_path)
-
-        # Process GIF
-        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-
-        # Send the processed GIF
-        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
-
-    else:
-        update.message.reply_text('Please reply to a photo or a GIF to pixelate faces.')
 
 def button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    session_id = query.data.split('_')[-1]
-    context_type = 'user_data' if context.user_data else 'chat_data'
-    data_store = context.user_data if context.user_data else context.chat_data
+    query.answer()
 
-    if session_id in data_store:
-        photo_path = data_store[session_id]['photo_path']
-        user_id = data_store[session_id]['user_id']
+    # Extracting the session ID and overlay type from the callback data
+    overlay_type, session_id = query.data.split('_')
 
-        if 'clowns_overlay' in query.data:
-            processed_path = clowns_overlay(photo_path, user_id, context.bot)
-        elif 'liotta_overlay' in query.data:
-            processed_path = liotta_overlay(photo_path, user_id, context.bot)
-        elif 'skull_overlay' in query.data:
-            processed_path = skull_overlay(photo_path, user_id, context.bot)
-        elif 'cats_overlay' in query.data:
-            processed_path = cats_overlay(photo_path, user_id, context.bot)
-        elif 'pepe_overlay' in query.data:
-            processed_path = pepe_overlay(photo_path, user_id, context.bot)
-        elif 'chad_overlay' in query.data:
-            processed_path = chad_overlay(photo_path, user_id, context.bot)
-        elif 'pixelate' in query.data:
-            processed_path = process_image(photo_path, user_id, session_id, context.bot)
-        elif 'cancel' in query.data:
-            # Delete the keyboard when 'cancel' is pressed
-            query.edit_message_reply_markup(reply_markup=None)
-            return
+    # Process the image with the selected overlay type
+    photo_path = f"downloads/{update.effective_user.id}_{session_id}.jpg"
+    overlay_functions = {
+        'pixel': process_image,
+        'liotta': liotta_overlay,
+        'skull': skull_overlay,
+        'pepe': pepe_overlay,
+        'chad': chad_overlay,
+        'cats': cats_overlay,
+        'clowns': clowns_overlay,
+    }
+    processed_path = overlay_functions[overlay_type](photo_path, update.effective_user.id, session_id, context.bot)
 
-        with open(processed_path, 'rb') as processed_file:
-            query.message.reply_photo(processed_file)
-            os.remove(processed_path)
-
-        # Update the stored path to the new processed path
-        data_store[session_id]['photo_path'] = processed_path
-
-        # Delete the keyboard after processing
-        query.edit_message_reply_markup(reply_markup=None)
+    # Send the processed image back to the user
+    context.bot.send_photo(update.effective_chat.id, photo=open(processed_path, 'rb'))
 
 def main() -> None:
     updater = Updater(TOKEN)
-
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document.mime_type('image/gif'), pixelate_faces))
-    dispatcher.add_handler(CommandHandler("pixelate", pixelate_command))
+    dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button))
 
     updater.start_polling()
