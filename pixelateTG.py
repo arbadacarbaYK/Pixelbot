@@ -36,30 +36,33 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
         center_x = x + w // 2
         center_y = y + h // 2
-        overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.1 * resize_factor * w)
-        overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
         new_width = int(resize_factor * w)
         new_height = int(new_width / original_aspect_ratio)
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
-        overlay_x = max(0, overlay_x)
-        overlay_y = max(0, overlay_y)
-        roi_start_x = max(0, overlay_x)
-        roi_start_y = max(0, overlay_y)
-        roi_end_x = min(image.shape[1], overlay_x + new_width)
-        roi_end_y = min(image.shape[0], overlay_y + new_height)
-        image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] = (
-            overlay_image_resized[
-                roi_start_y - overlay_y : roi_end_y - overlay_y,
-                roi_start_x - overlay_x : roi_end_x - overlay_x,
-                :3
-            ] * (overlay_image_resized[:, :, 3:] / 255.0) +
-            image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, :3] *
-            (1.0 - overlay_image_resized[:, :, 3:] / 255.0)
-        )
+        
+        # Ensure ROI dimensions match
+        roi_start_x = max(0, center_x - new_width // 2)
+        roi_start_y = max(0, center_y - new_height // 2)
+        roi_end_x = min(image.shape[1], roi_start_x + new_width)
+        roi_end_y = min(image.shape[0], roi_start_y + new_height)
+        
+        overlay_resized_width = roi_end_x - roi_start_x
+        overlay_resized_height = roi_end_y - roi_start_y
+
+        overlay_image_resized = cv2.resize(overlay_image_resized, (overlay_resized_width, overlay_resized_height), interpolation=cv2.INTER_AREA)
+
+        # Blending
+        try:
+            alpha_mask = overlay_image_resized[:, :, 3] / 255.0
+            for c in range(3):
+                image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, c] = (alpha_mask * overlay_image_resized[:, :, c] +
+                                                                          (1 - alpha_mask) * image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, c])
+        except ValueError as e:
+            print(f"Error blending overlay: {e}")
+            continue
 
     processed_path = f"processed/{user_id}_{overlay_type}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-
     return processed_path
 
 # Overlay functions
@@ -95,91 +98,30 @@ def process_image(photo_path, user_id, file_id, bot):
 
     processed_path = f"processed/{user_id}_{file_id}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-
     return processed_path
 
 def process_gif(gif_path, session_id, user_id, bot):
-    # Extract frames from GIF and process each frame
     frames = imageio.mimread(gif_path)
     processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
-    # Reconstruct GIF
     processed_gif_path = f"processed/{user_id}_{session_id}.gif"
     imageio.mimsave(processed_gif_path, processed_frames)
     return processed_gif_path
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
-    session_id = str(uuid4())  # Generate a unique session ID
-    user_data = context.user_data  # Use user_data for private chats
+    session_id = str(uuid4())
+    user_data = context.user_data
 
-    if update.message.photo:  # If the message contains a photo
+    if update.message.photo:
         file_id = update.message.photo[-1].file_id
         file = context.bot.get_file(file_id)
         file_name = file.file_path.split('/')[-1]
         photo_path = f"downloads/{file_name}"
         file.download(photo_path)
 
-        # Check if any faces are detected
         image = cv2.imread(photo_path)
-        mtcnn = MTCNN()
-        faces = mtcnn.detect_faces(image)
+        faces = detect_heads(image)
 
         if not faces:
-            # No faces detected, do nothing
-            update.message.reply_text('No faces detected in the image.')
-            return
-
-        keyboard = [
-            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
-             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
-            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),                 
-             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),                 
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),                 
-             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],  # Add Cancel button
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
-
-        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-
-        # Delete the original picture from the chat
-        update.message.delete()
-
-    elif update.message.document and update.message.document.mime_type == 'image/gif':  # If the message contains a GIF
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        gif_path = f"downloads/{file_name}"
-        file.download(gif_path)
-
-        # Process GIF
-        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-
-        # Send the processed GIF
-        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
-
-    else:
-        update.message.reply_text('Please send either a photo or a GIF.')
-
-def pixelate_command(update: Update, context: CallbackContext) -> None:
-    if update.message.reply_to_message and update.message.reply_to_message.photo:
-        session_id = str(uuid4())  # Generate a unique session ID
-        chat_data = context.chat_data  # Use chat_data for group chats
-
-        file_id = update.message.reply_to_message.photo[-1].file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        photo_path = f"downloads/{file_name}"
-        file.download(photo_path)
-
-        # Check if any faces are detected
-        image = cv2.imread(photo_path)
-        mtcnn = MTCNN()
-        faces = mtcnn.detect_faces(image)
-
-        if not faces:
-            # No faces detected, do nothing
             update.message.reply_text('No faces detected in the image.')
             return
 
@@ -191,7 +133,54 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
              InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
             [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],  # Add Cancel button
+             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
+
+        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+        update.message.delete()
+
+    elif update.message.document and update.message.document.mime_type == 'image/gif':
+        file_id = update.message.document.file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+        gif_path = f"downloads/{file_name}"
+        file.download(gif_path)
+
+        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
+        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
+
+    else:
+        update.message.reply_text('Please send either a photo or a GIF.')
+
+def pixelate_command(update: Update, context: CallbackContext) -> None:
+    if update.message.reply_to_message and update.message.reply_to_message.photo:
+        session_id = str(uuid4())
+        chat_data = context.chat_data
+
+        file_id = update.message.reply_to_message.photo[-1].file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+        photo_path = f"downloads/{file_name}"
+        file.download(photo_path)
+
+        image = cv2.imread(photo_path)
+        faces = detect_heads(image)
+
+        if not faces:
+            update.message.reply_text('No faces detected in the image.')
+            return
+
+        keyboard = [
+            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
+             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
+            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
+             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         chat_data[session_id] = {'photo_path': photo_path, 'chat_id': update.message.chat.id}
@@ -204,10 +193,8 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
     session_id = query.data.split('_')[-1]
-    user_data = context.user_data  # For DMs
-    chat_data = context.chat_data  # For group chats
-
-    # Try to get session data from user_data, fallback to chat_data if not found
+    user_data = context.user_data
+    chat_data = context.chat_data
     data = user_data.get(session_id) or chat_data.get(session_id)
 
     if data:
@@ -219,7 +206,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
                 del user_data[session_id]
             if session_id in chat_data:
                 del chat_data[session_id]
-            query.message.delete()  # Remove the message containing the keyboard
+            query.message.delete()
             return
 
         processed_path = None
@@ -241,7 +228,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-
 
 def main() -> None:
     updater = Updater(TOKEN)
