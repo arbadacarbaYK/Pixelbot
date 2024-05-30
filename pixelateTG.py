@@ -103,60 +103,60 @@ def process_gif(gif_path, session_id, user_id, bot):
     return processed_gif_path
 
 
+
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
     user_data = context.user_data
 
-    if update.message.photo or (update.message.document and update.message.document.mime_type == 'image/gif'):
-        file_id = None
-        if update.message.photo:
-            file_id = update.message.photo[-1].file_id
-        elif update.message.document.mime_type == 'image/gif':
-            file_id = update.message.document.file_id
+    if update.message.photo:
+        file_id = update.message.photo[-1].file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
 
-        if file_id:
-            file = context.bot.get_file(file_id)
-            file_name = file.file_path.split('/')[-1]
-            if file_name.endswith('.gif'):
-                # Download the GIF file
-                gif_path = f"downloads/{file_name}"
-                file.download(gif_path)
+        # Process the image
+        photo_path = f"downloads/{file_name}"
+        file.download(photo_path)
 
-                # Process the GIF
-                processed_gif_path = process_gif(gif_path, session_id, update.message.from_user.id, context.bot)
-                context.bot.send_animation(chat_id=update.message.from_user.id, animation=open(processed_gif_path, 'rb'))
+        image = cv2.imread(photo_path)
+        faces = detect_heads(image)
 
-                # Clean up temporary files
-                os.remove(gif_path)
-            else:
-                # Process the image
-                photo_path = f"downloads/{file_name}"
-                file.download(photo_path)
+        if not faces:
+            update.message.reply_text('No faces detected in the image.')
+            return
 
-                image = cv2.imread(photo_path)
-                faces = detect_heads(image)
+        keyboard = [
+            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
+             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
+            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
+             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
-                if not faces:
-                    update.message.reply_text('No faces detected in the image.')
-                    return
+        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+        update.message.delete()
+    elif update.message.document and update.message.document.mime_type == 'image/gif':
+        file_id = update.message.document.file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
 
-                keyboard = [
-                    [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-                     InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
-                     InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
-                    [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
-                     InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-                     InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-                    [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-                     InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
+        # Download the GIF file
+        gif_path = f"downloads/{file_name}"
+        file.download(gif_path)
 
-                update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-                update.message.delete()
+        # Process the GIF
+        processed_gif_path = process_gif(gif_path, session_id, update.message.from_user.id, context.bot)
+        context.bot.send_animation(chat_id=update.message.from_user.id, animation=open(processed_gif_path, 'rb'))
+
+        # Clean up temporary files
+        os.remove(gif_path)
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
+
 
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
