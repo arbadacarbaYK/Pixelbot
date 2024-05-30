@@ -142,10 +142,11 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         file.download(gif_path)
 
         processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
+        context.bot.send_animation(chat_id=update.message.from_user.id, animation=open(processed_gif_path, 'rb'))
 
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
+
 
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
