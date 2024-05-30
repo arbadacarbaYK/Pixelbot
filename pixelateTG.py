@@ -148,7 +148,6 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Please send either a photo or a GIF.')
 
 
-
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
         session_id = str(uuid4())
