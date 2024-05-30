@@ -115,26 +115,18 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
             file = context.bot.get_file(file_id)
             file_name = file.file_path.split('/')[-1]
             if file_name.endswith('.gif'):
-                # Convert GIF to a series of JPG frames
+                # Download the GIF file
                 gif_path = f"downloads/{file_name}"
                 file.download(gif_path)
-                frames = imageio.mimread(gif_path)
-                jpg_frames = [imageio.imwrite(f"downloads/{session_id}_{i}.jpg", frame) for i, frame in enumerate(frames)]
-                photo_paths = [f"downloads/{session_id}_{i}.jpg" for i in range(len(jpg_frames))]
 
-                # Process each frame separately
-                processed_frames = [process_image(photo_path, update.message.from_user.id, session_id, context.bot) for photo_path in photo_paths]
-                processed_gif_path = f"processed/{update.message.from_user.id}_{session_id}.gif"
-                imageio.mimsave(processed_gif_path, processed_frames)
-
-                # Send the processed GIF
+                # Process the GIF
+                processed_gif_path = process_gif(gif_path, session_id, update.message.from_user.id, context.bot)
                 context.bot.send_animation(chat_id=update.message.from_user.id, animation=open(processed_gif_path, 'rb'))
 
                 # Clean up temporary files
-                for photo_path in photo_paths:
-                    os.remove(photo_path)
                 os.remove(gif_path)
             else:
+                # Process the image
                 photo_path = f"downloads/{file_name}"
                 file.download(photo_path)
 
