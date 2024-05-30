@@ -12,23 +12,6 @@ https://t.me/Pixelatebot
 <img width="300" alt="Screenshot 2023-12-07 at 12 48 05" src=https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/c8460426-f31e-4968-957c-269ecb970a54)">
 
 
-# Install
-- Fork
-- Set up a repo secret in your repo under settings -> secrets -> actions -> TELEGRAM_BOT_TOKEN -> [yourtoken]
-- go to Actions and run
-
-Every change in code will trigger a new action to run. Go to actions before updating your code and cancel the running thread.
-
-
-<img width="450" alt="Screenshot 2023-12-05 at 20 18 28" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/dcf2e9da-3a32-4371-8454-9d8062bc00f4">
-
-It will then self-build up all dependencies given in requirements.txt and run the bot :) Enjoy.
-
-<img width="450" alt="Screenshot 2023-12-05 at 20 18 36" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/244eeca9-d84e-4ce3-bf68-0dc050fbaa04">
-
-<img width="450" alt="Screenshot 2023-12-05 at 20 18 47" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/0985eec3-58c4-4837-80fd-762368e10b3f">
-
-
 ## Behaviour in a DM with the bot
 *    on first button-press the original pic disappears
 *    a keyboard with buttons pops up 
@@ -43,6 +26,23 @@ It will then self-build up all dependencies given in requirements.txt and run th
 
   <img width="250" alt="Screenshot 2024-05-26 at 06 20 45" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/e0885c62-e212-45c0-8c5e-5969f7263351">
 <img width="250" alt="Screenshot 2024-05-26 at 06 20 57" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/f4320b49-af19-4805-b909-205887d2cd85">
+
+
+# Install as github action
+- Fork
+- Set up a repo secret in your repo under settings -> secrets -> actions -> TELEGRAM_BOT_TOKEN -> [yourtoken]
+- go to Actions and run
+
+Every change in code will trigger a new action to run. Go to actions before updating your code and cancel the running thread.
+
+
+<img width="450" alt="Screenshot 2023-12-05 at 20 18 28" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/dcf2e9da-3a32-4371-8454-9d8062bc00f4">
+
+It will then self-build up all dependencies given in requirements.txt and run the bot :) Enjoy.
+
+<img width="450" alt="Screenshot 2023-12-05 at 20 18 36" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/244eeca9-d84e-4ce3-bf68-0dc050fbaa04">
+
+<img width="450" alt="Screenshot 2023-12-05 at 20 18 47" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/0985eec3-58c4-4837-80fd-762368e10b3f">
 
 
 To Do
