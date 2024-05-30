@@ -95,10 +95,13 @@ def clowns_overlay(photo_path, user_id, bot):
 
 def process_gif(gif_path, session_id, user_id, bot):
     frames = imageio.mimread(gif_path)
+    print(f"Number of frames in GIF: {len(frames)}")
     processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
     processed_gif_path = f"processed/{user_id}_{session_id}.gif"
     imageio.mimsave(processed_gif_path, processed_frames)
+    print(f"Processed GIF saved at: {processed_gif_path}")
     return processed_gif_path
+
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
