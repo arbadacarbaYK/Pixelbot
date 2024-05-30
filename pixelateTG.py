@@ -115,35 +115,53 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
             file = context.bot.get_file(file_id)
             file_name = file.file_path.split('/')[-1]
             if file_name.endswith('.gif'):
-                file_name = file_name[:-4] + '.jpg'  # convert gif extension to jpg
-            photo_path = f"downloads/{file_name}"
-            file.download(photo_path)
+                # Convert GIF to a series of JPG frames
+                gif_path = f"downloads/{file_name}"
+                file.download(gif_path)
+                frames = imageio.mimread(gif_path)
+                jpg_frames = [imageio.imwrite(f"downloads/{session_id}_{i}.jpg", frame) for i, frame in enumerate(frames)]
+                photo_paths = [f"downloads/{session_id}_{i}.jpg" for i in range(len(jpg_frames))]
 
-            image = cv2.imread(photo_path)
-            faces = detect_heads(image)
+                # Process each frame separately
+                processed_frames = [process_image(photo_path, update.message.from_user.id, session_id, context.bot) for photo_path in photo_paths]
+                processed_gif_path = f"processed/{update.message.from_user.id}_{session_id}.gif"
+                imageio.mimsave(processed_gif_path, processed_frames)
 
-            if not faces:
-                update.message.reply_text('No faces detected in the image.')
-                return
+                # Send the processed GIF
+                context.bot.send_animation(chat_id=update.message.from_user.id, animation=open(processed_gif_path, 'rb'))
 
-            keyboard = [
-                [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-                 InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
-                 InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
-                [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
-                 InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-                 InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-                [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-                 InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
+                # Clean up temporary files
+                for photo_path in photo_paths:
+                    os.remove(photo_path)
+                os.remove(gif_path)
+            else:
+                photo_path = f"downloads/{file_name}"
+                file.download(photo_path)
 
-            update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-            update.message.delete()
+                image = cv2.imread(photo_path)
+                faces = detect_heads(image)
+
+                if not faces:
+                    update.message.reply_text('No faces detected in the image.')
+                    return
+
+                keyboard = [
+                    [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+                     InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
+                     InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
+                    [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
+                     InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+                     InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+                    [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+                     InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
+
+                update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+                update.message.delete()
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
-
 
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
