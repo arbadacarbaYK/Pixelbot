@@ -104,48 +104,43 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
     user_data = context.user_data
 
-    if update.message.photo:
-        file_id = update.message.photo[-1].file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        photo_path = f"downloads/{file_name}"
-        file.download(photo_path)
-
-        image = cv2.imread(photo_path)
-        faces = detect_heads(image)
-
-        if not faces:
-            update.message.reply_text('No faces detected in the image.')
-            return
-
-        keyboard = [
-            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
-             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
-            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
-             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
-
-        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-        update.message.delete()
-
-    elif update.message.document:
-        if update.message.document.mime_type == 'image/gif':
+    if update.message.photo or (update.message.document and update.message.document.mime_type == 'image/gif'):
+        file_id = None
+        if update.message.photo:
+            file_id = update.message.photo[-1].file_id
+        elif update.message.document.mime_type == 'image/gif':
             file_id = update.message.document.file_id
+
+        if file_id:
             file = context.bot.get_file(file_id)
             file_name = file.file_path.split('/')[-1]
-            gif_path = f"downloads/{file_name}"
-            file.download(gif_path)
+            if file_name.endswith('.gif'):
+                file_name = file_name[:-4] + '.jpg'  # convert gif extension to jpg
+            photo_path = f"downloads/{file_name}"
+            file.download(photo_path)
 
-            processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-            context.bot.send_animation(chat_id=update.message.from_user.id, animation=open(processed_gif_path, 'rb'))
-        else:
-            update.message.reply_text('Please send either a photo or a GIF.')
+            image = cv2.imread(photo_path)
+            faces = detect_heads(image)
+
+            if not faces:
+                update.message.reply_text('No faces detected in the image.')
+                return
+
+            keyboard = [
+                [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+                 InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
+                 InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
+                [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
+                 InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+                 InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+                [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+                 InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
+
+            update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+            update.message.delete()
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
 
