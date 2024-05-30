@@ -134,18 +134,21 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
         update.message.delete()
 
-    elif update.message.document and update.message.document.mime_type == 'image/gif':
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        gif_path = f"downloads/{file_name}"
-        file.download(gif_path)
+    elif update.message.document:
+        if update.message.document.mime_type == 'image/gif':
+            file_id = update.message.document.file_id
+            file = context.bot.get_file(file_id)
+            file_name = file.file_path.split('/')[-1]
+            gif_path = f"downloads/{file_name}"
+            file.download(gif_path)
 
-        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-        context.bot.send_animation(chat_id=update.message.from_user.id, animation=open(processed_gif_path, 'rb'))
-
+            processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
+            context.bot.send_animation(chat_id=update.message.from_user.id, animation=open(processed_gif_path, 'rb'))
+        else:
+            update.message.reply_text('Please send either a photo or a GIF.')
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
+
 
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
