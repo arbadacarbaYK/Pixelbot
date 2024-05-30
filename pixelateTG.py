@@ -8,8 +8,6 @@ from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQuery
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
-from datetime import datetime, timedelta
-import schedule
 
 # Load environment variables from .env file
 load_dotenv()
@@ -19,7 +17,6 @@ MAX_THREADS = 15
 PIXELATION_FACTOR = 0.04
 RESIZE_FACTOR = 1.5  # Common resize factor
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
-DELETE_TIME_HOURS = int(os.getenv('DELETE_TIME_HOURS', 24))  # Get the time in hours from the environment variable
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture or a GIF, and I will pixelate faces in it!')
@@ -139,30 +136,29 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         ]
         
         # Check if it's a private chat, if yes, include the "⚔️ Pixel" button
-if update.message.chat.type == 'private':
-    keyboard.append([InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')])
+        if update.message.chat.type == 'private':
+            keyboard.append([InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')])
 
-keyboard.append([InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')])
+        keyboard.append([InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
-reply_markup = InlineKeyboardMarkup(keyboard)
-user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
+        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+        update.message.delete()
 
-update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-update.message.delete()
+    elif update.message.document and update.message.document.mime_type == 'image/gif':
+        file_id = update.message.document.file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+        gif_path = f"downloads/{file_name}"
+        file.download(gif_path)
 
-elif update.message.document and update.message.document.mime_type == 'image/gif':
-    file_id = update.message.document.file_id
-    file = context.bot.get_file(file_id)
-    file_name = file.file_path.split('/')[-1]
-    gif_path = f"downloads/{file_name}"
-    file.download(gif_path)
+        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
+        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
 
-    processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-    context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
-
-else:
-    update.message.reply_text('Please send either a photo or a GIF.')
-
+    else:
+        update.message.reply_text('Please send either a photo or a GIF.')
 
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
@@ -261,19 +257,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
 
-def delete_old_files(folder):
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        creation_time = datetime.fromtimestamp(os.path.getctime(file_path))
-        if datetime.now() - creation_time > timedelta(hours=DELETE_TIME_HOURS):
-            os.remove(file_path)
-
-
-def delete_old_files_in_folders():
-    folders_to_clean = ['downloads', 'processed']
-    for folder in folders_to_clean:
-        delete_old_files(folder)
-
 def main() -> None:
     updater = Updater(TOKEN)
 
@@ -284,15 +267,7 @@ def main() -> None:
     dispatcher.add_handler(MessageHandler(Filters.photo & Filters.private, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
 
-    # Schedule file cleanup job to run every day at 3 AM
-    schedule.every().day.at("03:00").do(delete_old_files_in_folders)
-
     updater.start_polling()
-
-    # Keep the program running to execute scheduled tasks
-    while True:
-        schedule.run_pending()
-
     updater.idle()
 
 if __name__ == "__main__":
