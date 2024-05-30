@@ -1,6 +1,7 @@
 # Pixelbot
-A Telegram bot that replaces faces with pixels, skull of satoshi, liotta faces, clowns or random cat-pics and runs via github actions.
-https://t.me/Pixelatebot  
+A Telegram bot that replaces faces with pixels, skull of satoshi, liotta faces, clowns or random cat-pics and can run via github actions or in a local VM.
+
+# https://t.me/Pixelatebot  
 
 
 <img width="300" alt="Screenshot 2023-12-07 at 13 48 39" src="https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/d896d365-0c91-4c49-890d-eacf8f4143f0">
