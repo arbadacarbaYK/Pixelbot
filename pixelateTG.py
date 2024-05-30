@@ -1,5 +1,5 @@
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # Import the load_dotenv function from python-dotenv
 import cv2
 import random
 import imageio
@@ -8,15 +8,18 @@ from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQuery
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
+from datetime import datetime, timedelta
+import schedule
 
 # Load environment variables from .env file
 load_dotenv()
 
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Get the Telegram bot token from the environment variable
 MAX_THREADS = 15
 PIXELATION_FACTOR = 0.04
-RESIZE_FACTOR = 1.5
+RESIZE_FACTOR = 1.5  # Common resize factor
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
+DELETE_TIME_HOURS = int(os.getenv('DELETE_TIME_HOURS', 24))  # Get the time in hours from the environment variable
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture or a GIF, and I will pixelate faces in it!')
@@ -39,25 +42,32 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
         original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
 
+        # Calculate new dimensions for the overlay
         new_width = int(resize_factor * w)
         new_height = int(new_width / original_aspect_ratio)
 
+        # Ensure the overlay is centered on the face
         center_x = x + w // 2
         center_y = y + h // 2
 
+        # Overlay position adjusted for better centering
         overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.1 * resize_factor * w)
         overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
 
+        # Clamp values to ensure they are within the image boundaries
         overlay_x = max(0, overlay_x)
         overlay_y = max(0, overlay_y)
 
+        # Resize the overlay image
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
+        # Calculate the regions of interest (ROI)
         roi_start_x = overlay_x
         roi_start_y = overlay_y
         roi_end_x = min(image.shape[1], overlay_x + new_width)
         roi_end_y = min(image.shape[0], overlay_y + new_height)
 
+        # Blend the overlay onto the image
         try:
             overlay_part = overlay_image_resized[:roi_end_y - roi_start_y, :roi_end_x - roi_start_x]
             alpha_mask = overlay_part[:, :, 3] / 255.0
@@ -73,6 +83,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     processed_path = f"processed/{user_id}_{overlay_type}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
+
 
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
@@ -116,7 +127,6 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
 
         if not faces:
             update.message.reply_text('No faces detected in the image.')
-            os.remove(photo_path)  # Delete the downloaded file
             return
 
         keyboard = [
@@ -125,32 +135,35 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
             [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
              InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')],
-            [InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
+             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')]
         ]
         
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
+        # Check if it's a private chat, if yes, include the "⚔️ Pixel" button
+if update.message.chat.type == 'private':
+    keyboard.append([InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')])
 
-        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-        update.message.delete()
+keyboard.append([InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')])
 
-    elif update.message.document and update.message.document.mime_type == 'image/gif':
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        gif_path = f"downloads/{file_name}"
-        file.download(gif_path)
+reply_markup = InlineKeyboardMarkup(keyboard)
+user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
-        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
+update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+update.message.delete()
 
-        os.remove(gif_path)  # Delete the downloaded file
-        os.remove(processed_gif_path)  # Delete the processed file
+elif update.message.document and update.message.document.mime_type == 'image/gif':
+    file_id = update.message.document.file_id
+    file = context.bot.get_file(file_id)
+    file_name = file.file_path.split('/')[-1]
+    gif_path = f"downloads/{file_name}"
+    file.download(gif_path)
 
-    else:
-        update.message.reply_text('Please send either a photo or a GIF.')
+    processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
+    context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
+
+else:
+    update.message.reply_text('Please send either a photo or a GIF.')
+
+
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
@@ -168,7 +181,6 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
 
         if not faces:
             update.message.reply_text('No faces detected in the image.')
-            os.remove(photo_path)  # Delete the downloaded file
             return
 
         keyboard = [
@@ -193,15 +205,21 @@ def process_image(photo_path, user_id, session_id, bot):
     faces = detect_heads(image)
 
     for (x, y, w, h) in faces:
+        # Define the region of interest (ROI)
         roi = image[y:y+h, x:x+w]
-        pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
+
+        # Apply pixelation to the ROI
+        pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))  # Ensure pixelation size is at least 1
         pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
         pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
+
+        # Replace the original face region with the pixelated ROI
         image[y:y+h, x:x+w] = pixelated_roi
 
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -221,7 +239,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             if session_id in chat_data:
                 del chat_data[session_id]
             query.message.delete()
-            os.remove(photo_path)  # Delete the downloaded file
             return
 
         processed_path = None
@@ -243,11 +260,23 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-            os.remove(processed_path)  # Delete the processed file
-            os.remove(photo_path)  # Delete the downloaded file
+
+def delete_old_files(folder):
+    for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        creation_time = datetime.fromtimestamp(os.path.getctime(file_path))
+        if datetime.now() - creation_time > timedelta(hours=DELETE_TIME_HOURS):
+            os.remove(file_path)
+
+
+def delete_old_files_in_folders():
+    folders_to_clean = ['downloads', 'processed']
+    for folder in folders_to_clean:
+        delete_old_files(folder)
 
 def main() -> None:
     updater = Updater(TOKEN)
+
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("start", start))
@@ -255,7 +284,15 @@ def main() -> None:
     dispatcher.add_handler(MessageHandler(Filters.photo & Filters.private, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
 
+    # Schedule file cleanup job to run every day at 3 AM
+    schedule.every().day.at("03:00").do(delete_old_files_in_folders)
+
     updater.start_polling()
+
+    # Keep the program running to execute scheduled tasks
+    while True:
+        schedule.run_pending()
+
     updater.idle()
 
 if __name__ == "__main__":
