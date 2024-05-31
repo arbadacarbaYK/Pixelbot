@@ -228,10 +228,10 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
 
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
-    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document.mime_type == 'image/gif'):
-        session_id = str(uuid4())
-        chat_data = context.chat_data
+    session_id = str(uuid4())
+    chat_data = context.chat_data
 
+    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document.mime_type == 'image/gif'):
         if update.message.reply_to_message.photo:
             file_id = update.message.reply_to_message.photo[-1].file_id
             file = context.bot.get_file(file_id)
@@ -287,7 +287,8 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
         # Clean up temporary files
         os.remove(gif_path)
     else:
-        update.message.reply_text('Please reply to a photo or a GIF with the /pixelate command.')
+        update.message.reply_text('Please reply to a photo
+
 
 
 def main() -> None:
