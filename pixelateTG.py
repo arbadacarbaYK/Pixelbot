@@ -5,7 +5,7 @@ import random
 import imageio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
 import logging
@@ -81,7 +81,6 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
 
-
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
@@ -127,8 +126,6 @@ def process_gif(gif_path, session_id, user_id, bot):
         logger.error(f"Error processing GIF: {e}")
         raise
 
-
-
 def process_image(photo_path, user_id, session_id, bot):
     image = cv2.imread(photo_path)
     faces = detect_heads(image)
@@ -150,8 +147,6 @@ def process_image(photo_path, user_id, session_id, bot):
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
-
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -193,7 +188,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         if processed_path:
             with open(processed_path, 'rb') as photo:
                 context.bot.send_photo(chat_id=query.message.chat_id, photo=photo)
-
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
@@ -255,7 +249,6 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
 
-
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
     chat_data = context.chat_data
@@ -315,8 +308,6 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('Please reply to a photo or a GIF.')
 
-
-
 def main() -> None:
     updater = Updater(TOKEN)
 
@@ -340,7 +331,5 @@ def main() -> None:
     # Run the bot until you press Ctrl-C
     updater.idle()
 
-
 if __name__ == '__main__':
     main()
-
