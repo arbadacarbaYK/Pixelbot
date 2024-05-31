@@ -305,6 +305,8 @@ def main() -> None:
 
     # Message handler for photos and GIFs
     dp.add_handler(MessageHandler(Filters.photo | Filters.document.mime_type("image/gif"), pixelate_faces))
+    # Message handler for private messages containing GIFs
+    dp.add_handler(MessageHandler(Filters.private & Filters.document.mime_type("image/gif"), pixelate_faces))
 
     # Start the Bot
     updater.start_polling()
