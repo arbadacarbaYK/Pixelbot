@@ -10,7 +10,7 @@ from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
 import logging
 
-logging.basic_config(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
