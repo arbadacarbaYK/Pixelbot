@@ -110,6 +110,62 @@ def process_gif(gif_path, session_id, user_id, bot):
         logger.error(f"Error processing GIF: {e}")
         raise
 
+def process_image(photo_path, user_id, session_id, bot):
+    image = cv2.imread(photo_path)
+    faces = detect_heads(image)
+
+    for (x, y, w, h) in faces:
+        roi = image[y:y+h, x:x+w]
+        pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
+        pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
+        pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
+        image[y:y+h, x:x+w] = pixelated_roi
+
+    processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+    return processed_path
+
+
+def button_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+    session_id = query.data.split('_')[-1]
+    user_data = context.user_data
+    chat_data = context.chat_data
+    data = user_data.get(session_id) or chat_data.get(session_id)
+
+    if data:
+        photo_path = data.get('photo_path')
+        user_or_chat_id = data.get('user_id') or data.get('chat_id')
+
+        if query.data.startswith('cancel'):
+            if session_id in user_data:
+                del user_data[session_id]
+            if session_id in chat_data:
+                del chat_data[session_id]
+            query.message.delete()
+            return
+
+        processed_path = None
+
+        if query.data.startswith('pixelate'):
+            processed_path = process_image(photo_path, user_or_chat_id, query.id, context.bot)
+        elif query.data.startswith('liotta'):
+            processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query        .data.startswith('cats_overlay'):
+            processed_path = cats_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query.data.startswith('skull_overlay'):
+            processed_path = skull_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query.data.startswith('pepe_overlay'):
+            processed_path = pepe_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query.data.startswith('chad_overlay'):
+            processed_path = chad_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query.data.startswith('clowns_overlay'):
+            processed_path = clowns_overlay(photo_path, user_or_chat_id, context.bot)
+
+        if processed_path:
+            context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
     user_data = context.user_data
@@ -170,6 +226,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
 
+
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document.mime_type == 'image/gif'):
         session_id = str(uuid4())
@@ -206,79 +263,58 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        chat_data[session_id] = {'photo_path': photo_path, 'chat_id': update.message.chat.id}
+        chat_data[session_id] = {'photo_path': photo_path, 'chat_id': update.message.chat_id}
 
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+    elif update.message.reply_to_message and update.message.reply_to_message.document.mime_type == 'image/gif':
+        file_id = update.message.reply_to_message.document.file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+
+        # Download the GIF file
+        gif_path = f"downloads/{file_name}"
+        file.download(gif_path)
+        
+        logger.info(f"GIF downloaded to {gif_path}")
+
+        # Process the GIF
+        try:
+            processed_gif_path = process_gif(gif_path, session_id, update.message.chat_id, context.bot)
+            context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
+        except Exception as e:
+            logger.error(f"Error processing GIF: {e}")
+
+        # Clean up temporary files
+        os.remove(gif_path)
     else:
-        update.message.reply_text('This only works as a reply to a picture or a GIF.')
+        update.message.reply_text('Please reply to a photo or a GIF with the /pixelate command.')
 
-def process_image(photo_path, user_id, session_id, bot):
-    image = cv2.imread(photo_path)
-    faces = detect_heads(image)
-
-    for (x, y, w, h) in faces:
-        roi = image[y:y+h, x:x+w]
-        pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
-        pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
-        pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
-        image[y:y+h, x:x+w] = pixelated_roi
-
-    processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
-    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-    return processed_path
-
-def button_callback(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-    session_id = query.data.split('_')[-1]
-    user_data = context.user_data
-    chat_data = context.chat_data
-    data = user_data.get(session_id) or chat_data.get(session_id)
-
-    if data:
-        photo_path = data.get('photo_path')
-        user_or_chat_id = data.get('user_id') or data.get('chat_id')
-
-        if query.data.startswith('cancel'):
-            if session_id in user_data:
-                del user_data[session_id]
-            if session_id in chat_data:
-                del chat_data[session_id]
-            query.message.delete()
-            return
-
-        processed_path = None
-
-        if query.data.startswith('pixelate'):
-            processed_path = process_image(photo_path, user_or_chat_id, query.id, context.bot)
-        elif query.data.startswith('liotta'):
-            processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
-        elif query.data.startswith('cats_overlay'):
-            processed_path = cats_overlay(photo_path, user_or_chat_id, context.bot)
-        elif query.data.startswith('skull_overlay'):
-            processed_path = skull_overlay(photo_path, user_or_chat_id, context.bot)
-        elif query.data.startswith('pepe_overlay'):
-            processed_path = pepe_overlay(photo_path, user_or_chat_id, context.bot)
-        elif query.data.startswith('chad_overlay'):
-            processed_path = chad_overlay(photo_path, user_or_chat_id, context.bot)
-        elif query.data.startswith('clowns_overlay'):
-            processed_path = clowns_overlay(photo_path, user_or_chat_id, context.bot)
-
-        if processed_path:
-            context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
 
 def main() -> None:
     updater = Updater(TOKEN)
 
-    dispatcher = updater.dispatcher
+    # Dispatchers
+    dp = updater.dispatcher
 
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("pixel", pixelate_command))
-    dispatcher.add_handler(MessageHandler(Filters.photo & Filters.private, pixelate_faces))
-    dispatcher.add_handler(CallbackQueryHandler(button_callback))
+    # Commands
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("pixelate", pixelate_command))
 
+    # Callbacks
+    dp.add_handler(CallbackQueryHandler(button_callback))
+
+    # Message handler for photos and GIFs
+    dp.add_handler(MessageHandler(Filters.photo | Filters.document.mime_type("image/gif"), pixelate_faces))
+
+    # Start the Bot
     updater.start_polling()
+    logger.info("Bot started polling...")
+
+    # Run the bot until you press Ctrl-C
     updater.idle()
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     main()
+
+
