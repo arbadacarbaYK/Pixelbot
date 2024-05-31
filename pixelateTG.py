@@ -19,7 +19,7 @@ load_dotenv()
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 MAX_THREADS = 15
 PIXELATION_FACTOR = 0.04
-RESIZE_FACTOR = 1.5
+RESIZE_FACTOR = 1.3
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
 def start(update: Update, context: CallbackContext) -> None:
