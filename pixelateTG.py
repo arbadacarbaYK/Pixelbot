@@ -8,6 +8,10 @@ from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQuery
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -94,15 +98,17 @@ def clowns_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
 
 def process_gif(gif_path, session_id, user_id, bot):
-    frames = imageio.mimread(gif_path)
-    print(f"Number of frames in GIF: {len(frames)}")
-    processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
-    processed_gif_path = f"processed/{user_id}_{session_id}.gif"
-    imageio.mimsave(processed_gif_path, processed_frames)
-    print(f"Processed GIF saved at: {processed_gif_path}")
-    return processed_gif_path
-
-
+    try:
+        frames = imageio.mimread(gif_path)
+        logger.info(f"Number of frames in GIF: {len(frames)}")
+        processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
+        processed_gif_path = f"processed/{user_id}_{session_id}.gif"
+        imageio.mimsave(processed_gif_path, processed_frames)
+        logger.info(f"Processed GIF saved at: {processed_gif_path}")
+        return processed_gif_path
+    except Exception as e:
+        logger.error(f"Error processing GIF: {e}")
+        raise
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
@@ -116,6 +122,8 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         # Process the image
         photo_path = f"downloads/{file_name}"
         file.download(photo_path)
+        
+        logger.info(f"Photo downloaded to {photo_path}")
 
         image = cv2.imread(photo_path)
         faces = detect_heads(image)
@@ -147,33 +155,43 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         # Download the GIF file
         gif_path = f"downloads/{file_name}"
         file.download(gif_path)
+        
+        logger.info(f"GIF downloaded to {gif_path}")
 
         # Process the GIF
-        processed_gif_path = process_gif(gif_path, session_id, update.message.from_user.id, context.bot)
-        context.bot.send_animation(chat_id=update.message.from_user.id, animation=open(processed_gif_path, 'rb'))
+        try:
+            processed_gif_path = process_gif(gif_path, session_id, update.message.from_user.id, context.bot)
+            context.bot.send_animation(chat_id=update.message.from_user.id, animation=open(processed_gif_path, 'rb'))
+        except Exception as e:
+            logger.error(f"Error processing GIF: {e}")
 
         # Clean up temporary files
         os.remove(gif_path)
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
 
-
-
 def pixelate_command(update: Update, context: CallbackContext) -> None:
-    if update.message.reply_to_message and update.message.reply_to_message.photo:
+    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document.mime_type == 'image/gif'):
         session_id = str(uuid4())
         chat_data = context.chat_data
 
-        file_id = update.message.reply_to_message.photo[-1].file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        photo_path = f"downloads/{file_name}"
-        file.download(photo_path)
+        if update.message.reply_to_message.photo:
+            file_id = update.message.reply_to_message.photo[-1].file_id
+            file = context.bot.get_file(file_id)
+            file_name = file.file_path.split('/')[-1]
+            photo_path = f"downloads/{file_name}"
+            file.download(photo_path)
+            image = cv2.imread(photo_path)
+            faces = detect_heads(image)
+        else: # GIF handling
+            file_id = update.message.reply_to_message.document.file_id
+            file = context.bot.get_file(file_id)
+            file_name = file.file_path.split('/')[-1]
+            photo_path = f"downloads/{file_name}"
+            file.download(photo_path)
+            # For GIFs, no need to detect faces at this step
 
-        image = cv2.imread(photo_path)
-        faces = detect_heads(image)
-
-        if not faces:
+        if not faces and not update.message.reply_to_message.document.mime_type == 'image/gif':
             update.message.reply_text('No faces detected in the image.')
             return
 
@@ -192,7 +210,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
 
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
     else:
-        update.message.reply_text('This only works as a reply to a picture.')
+        update.message.reply_text('This only works as a reply to a picture or a GIF.')
 
 def process_image(photo_path, user_id, session_id, bot):
     image = cv2.imread(photo_path)
@@ -208,7 +226,6 @@ def process_image(photo_path, user_id, session_id, bot):
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
