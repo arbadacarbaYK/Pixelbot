@@ -31,10 +31,10 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     image = cv2.imread(photo_path)
     heads = detect_heads(image)
 
-    # Sort heads by y-coordinate in descending order
-    heads.sort(key=lambda box: box[1], reverse=True)
+    # Sort heads by y-coordinate in ascending order
+    heads.sort(key=lambda box: box[1])
 
-    for (x, y, w, h) in heads:
+    for (x, y, w, h) in heads[::-1]:  # Process heads in reverse order
         overlay_files = [name for name in os.listdir() if name.startswith(f'{overlay_type}_')]
         if not overlay_files:
             continue
