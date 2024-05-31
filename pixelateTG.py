@@ -134,19 +134,19 @@ def process_image(photo_path, user_id, session_id, bot):
         roi = image[y:y+h, x:x+w]
         pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
 
-        # Resize to pixelation size and back to original size
+        # Resize to pixelation size
         pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
+        
+        # Make sure the pixelated region matches the dimensions of the original region
         pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
-
-        # Make sure the resized region matches exactly
-        if pixelated_roi.shape[0] != h or pixelated_roi.shape[1] != w:
-            pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
 
         image[y:y+h, x:x+w] = pixelated_roi
 
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
+
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
