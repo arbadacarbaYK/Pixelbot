@@ -101,7 +101,16 @@ def process_gif(gif_path, session_id, user_id, bot):
     try:
         frames = imageio.mimread(gif_path)
         logger.info(f"Number of frames in GIF: {len(frames)}")
-        processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
+        
+        processed_frames = []
+        for frame in frames:
+            temp_image_path = f"temp_frame_{session_id}.jpg"
+            imageio.imwrite(temp_image_path, frame)
+            processed_frame_path = process_image(temp_image_path, user_id, session_id, bot)
+            processed_frame = imageio.imread(processed_frame_path)
+            processed_frames.append(processed_frame)
+            os.remove(temp_image_path)  # Clean up temporary frame image
+        
         processed_gif_path = f"processed/{user_id}_{session_id}.gif"
         imageio.mimsave(processed_gif_path, processed_frames)
         logger.info(f"Processed GIF saved at: {processed_gif_path}")
@@ -109,6 +118,7 @@ def process_gif(gif_path, session_id, user_id, bot):
     except Exception as e:
         logger.error(f"Error processing GIF: {e}")
         raise
+
 
 def process_image(photo_path, user_id, session_id, bot):
     image = cv2.imread(photo_path)
@@ -118,12 +128,16 @@ def process_image(photo_path, user_id, session_id, bot):
         roi = image[y:y+h, x:x+w]
         pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
         pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
-        pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)  # Ensure same dimensions
+        pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
+        
+        # Ensure dimensions match exactly
+        pixelated_roi = pixelated_roi[:h, :w]
         image[y:y+h, x:x+w] = pixelated_roi
 
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
+
 
 
 def button_callback(update: Update, context: CallbackContext) -> None:
