@@ -201,20 +201,20 @@ def process_image(photo_path, user_id, session_id, bot):
     faces = detect_heads(image)
 
     for (x, y, w, h) in faces:
+        # Define the region of interest (ROI)
         roi = image[y:y+h, x:x+w]
-        pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
+
+        # Apply pixelation to the ROI
+        pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))  # Ensure pixelation size is at least 1
         pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
         pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
 
-        # Ensure pixelated region matches the dimensions of the original region
-        pixelated_roi = cv2.resize(pixelated_roi, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_NEAREST)
-
+        # Replace the original face region with the pixelated ROI
         image[y:y+h, x:x+w] = pixelated_roi
 
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
-
 
 
 def button_callback(update: Update, context: CallbackContext) -> None:
