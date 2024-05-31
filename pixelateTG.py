@@ -35,8 +35,8 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     image = cv2.imread(photo_path)
     heads = detect_heads(image)
 
-    # Sort heads by y-coordinate (top to bottom)
-    heads.sort(key=lambda box: box[1])
+    # Sort heads by y-coordinate in descending order
+    heads.sort(key=lambda box: box[1], reverse=True)
 
     for (x, y, w, h) in heads:
         overlay_files = [name for name in os.listdir() if name.startswith(f'{overlay_type}_')]
@@ -46,25 +46,32 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
         original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
 
+        # Calculate new dimensions for the overlay
         new_width = int(resize_factor * w)
         new_height = int(new_width / original_aspect_ratio)
 
+        # Ensure the overlay is centered on the face
         center_x = x + w // 2
         center_y = y + h // 2
 
+        # Overlay position adjusted for better centering
         overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.1 * resize_factor * w)
         overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
 
+        # Clamp values to ensure they are within the image boundaries
         overlay_x = max(0, overlay_x)
         overlay_y = max(0, overlay_y)
 
+        # Resize the overlay image
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
+        # Calculate the regions of interest (ROI)
         roi_start_x = overlay_x
         roi_start_y = overlay_y
         roi_end_x = min(image.shape[1], overlay_x + new_width)
         roi_end_y = min(image.shape[0], overlay_y + new_height)
 
+        # Blend the overlay onto the image
         try:
             overlay_part = overlay_image_resized[:roi_end_y - roi_start_y, :roi_end_x - roi_start_x]
             alpha_mask = overlay_part[:, :, 3] / 255.0
