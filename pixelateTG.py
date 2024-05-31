@@ -127,11 +127,15 @@ def process_image(photo_path, user_id, session_id, bot):
     for (x, y, w, h) in faces:
         roi = image[y:y+h, x:x+w]
         pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
+
+        # Resize to pixelation size and back to original size
         pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
         pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
-        
-        # Ensure dimensions match exactly
-        pixelated_roi = pixelated_roi[:h, :w]
+
+        # Make sure the resized region matches exactly
+        if pixelated_roi.shape[0] != h or pixelated_roi.shape[1] != w:
+            pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
+
         image[y:y+h, x:x+w] = pixelated_roi
 
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
