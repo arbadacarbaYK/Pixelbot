@@ -1,4 +1,4 @@
-import os 
+import os
 from dotenv import load_dotenv
 import cv2
 import random
@@ -10,7 +10,7 @@ from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basic_config(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
@@ -35,8 +35,8 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     image = cv2.imread(photo_path)
     heads = detect_heads(image)
 
-    # Sort heads by y-coordinate in descending order
-    heads.sort(key=lambda box: box[1], reverse=True)
+    # Sort heads by the area (w * h) in descending order for layering
+    heads.sort(key=lambda box: box[2] * box[3], reverse=True)
 
     for (x, y, w, h) in heads:
         overlay_files = [name for name in os.listdir() if name.startswith(f'{overlay_type}_')]
@@ -55,12 +55,12 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         center_y = y + h // 2
 
         # Overlay position adjusted for better centering
-        overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.1 * resize_factor * w)
-        overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
+        overlay_x = int(center_x - new_width // 2)
+        overlay_y = int(center_y - new_height // 2)
 
         # Clamp values to ensure they are within the image boundaries
-        overlay_x = max(0, overlay_x)
-        overlay_y = max(0, overlay_y)
+        overlay_x = max(0, min(overlay_x, image.shape[1] - new_width))
+        overlay_y = max(0, min(overlay_y, image.shape[0] - new_height))
 
         # Resize the overlay image
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
@@ -68,8 +68,8 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         # Calculate the regions of interest (ROI)
         roi_start_x = overlay_x
         roi_start_y = overlay_y
-        roi_end_x = min(image.shape[1], overlay_x + new_width)
-        roi_end_y = min(image.shape[0], overlay_y + new_height)
+        roi_end_x = roi_start_x + new_width
+        roi_end_y = roi_start_y + new_height
 
         # Blend the overlay onto the image
         try:
@@ -87,7 +87,6 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     processed_path = f"processed/{user_id}_{overlay_type}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
-
 
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
@@ -130,7 +129,6 @@ def process_gif(gif_path, session_id, user_id, bot):
         logger.error(f"Error processing GIF: {e}")
         raise
 
-
 def process_image(photo_path, user_id, session_id, bot):
     image = cv2.imread(photo_path)
     faces = detect_heads(image)
@@ -152,8 +150,6 @@ def process_image(photo_path, user_id, session_id, bot):
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
-
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -181,7 +177,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             processed_path = process_image(photo_path, user_or_chat_id, query.id, context.bot)
         elif query.data.startswith('liotta'):
             processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
-        elif query        .data.startswith('cats_overlay'):
+        elif query.data.startswith('cats_overlay'):
             processed_path = cats_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('skull_overlay'):
             processed_path = skull_overlay(photo_path, user_or_chat_id, context.bot)
@@ -255,7 +251,6 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
 
-
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
     chat_data = context.chat_data
@@ -318,7 +313,6 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('Please reply to a photo or a GIF.')
 
-
 def main() -> None:
     updater = Updater(TOKEN)
 
@@ -341,7 +335,6 @@ def main() -> None:
 
     # Run the bot until you press Ctrl-C
     updater.idle()
-
 
 if __name__ == '__main__':
     main()
