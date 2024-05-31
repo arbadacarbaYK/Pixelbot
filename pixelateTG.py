@@ -287,8 +287,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
         # Clean up temporary files
         os.remove(gif_path)
     else:
-        update.message.reply_text('Please reply to a photo
-
+        update.message.reply_text('Please reply to a photo or a GIF.')
 
 
 def main() -> None:
