@@ -98,6 +98,7 @@ def chad_overlay(photo_path, user_id, bot):
 def cats_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'cat', RESIZE_FACTOR, bot)
 
+
 def clowns_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
 
@@ -179,7 +180,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
             update.message.reply_text('No faces detected in the image.')
             return
 
-        keyboard = [
+keyboard = [
             [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
              InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
              InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
@@ -262,7 +263,8 @@ def main() -> None:
 
     dispatcher = updater.dispatcher
 
-    dispatcher.add_handler(CommandHandler("start", start))
+
+dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("pixel", pixelate_command))
     dispatcher.add_handler(MessageHandler(Filters.photo & Filters.private, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
@@ -270,5 +272,5 @@ def main() -> None:
     updater.start_polling()
     updater.idle()
 
-if __name__ == "__main__":
+if name == "main":
     main()
