@@ -136,16 +136,20 @@ def process_image(photo_path, user_id, session_id, bot):
         pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
         pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
 
-        # Make sure the resized region matches exactly
+        # Adjust dimensions if they do not match exactly
         if pixelated_roi.shape[0] != h or pixelated_roi.shape[1] != w:
             pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
 
-        image[y:y+h, x:x+w] = pixelated_roi
+        # Ensure pixelated_roi has the exact dimensions as the region of interest (roi)
+        if pixelated_roi.shape == (h, w, 3):
+            image[y:y+h, x:x+w] = pixelated_roi
+        else:
+            # Log an error message and skip this face if the dimensions do not match
+            logger.error(f"Dimension mismatch: pixelated_roi shape {pixelated_roi.shape} != roi shape {(h, w, 3)}")
 
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
-
 
 
 def button_callback(update: Update, context: CallbackContext) -> None:
@@ -174,7 +178,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             processed_path = process_image(photo_path, user_or_chat_id, query.id, context.bot)
         elif query.data.startswith('liotta'):
             processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
-        elif query        .data.startswith('cats_overlay'):
+        elif query.data.startswith('cats_overlay'):
             processed_path = cats_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('skull_overlay'):
             processed_path = skull_overlay(photo_path, user_or_chat_id, context.bot)
@@ -187,6 +191,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
