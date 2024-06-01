@@ -25,6 +25,8 @@ def detect_heads(image):
     mtcnn = MTCNN()
     faces = mtcnn.detect_faces(image)
     head_boxes = [(face['box'][0], face['box'][1], int(RESIZE_FACTOR * face['box'][2]), int(RESIZE_FACTOR * face['box'][3])) for face in faces]
+    # Sort faces based on y-coordinate (top to bottom)
+    head_boxes.sort(key=lambda box: box[1])
     return head_boxes
 
 def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
