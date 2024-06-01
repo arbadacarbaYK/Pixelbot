@@ -136,20 +136,25 @@ def process_image(photo_path, user_id, session_id, bot):
         pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
         pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
 
-        # Adjust dimensions if they do not match exactly
-        if pixelated_roi.shape[0] != h or pixelated_roi.shape[1] != w:
-            pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
-
         # Ensure pixelated_roi has the exact dimensions as the region of interest (roi)
+        if pixelated_roi.shape != (h, w, 3):
+            # Pad pixelated_roi to match the ROI size
+            top_pad = (h - pixelated_roi.shape[0]) // 2
+            bottom_pad = h - pixelated_roi.shape[0] - top_pad
+            left_pad = (w - pixelated_roi.shape[1]) // 2
+            right_pad = w - pixelated_roi.shape[1] - left_pad
+            pixelated_roi = cv2.copyMakeBorder(pixelated_roi, top_pad, bottom_pad, left_pad, right_pad, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+
         if pixelated_roi.shape == (h, w, 3):
             image[y:y+h, x:x+w] = pixelated_roi
         else:
-            # Log an error message and skip this face if the dimensions do not match
-            logger.error(f"Dimension mismatch: pixelated_roi shape {pixelated_roi.shape} != roi shape {(h, w, 3)}")
+            # Log an error message if the dimensions do not match
+            logger.error(f"Dimension mismatch after padding: pixelated_roi shape {pixelated_roi.shape} != roi shape {(h, w, 3)}")
 
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
+
 
 
 def button_callback(update: Update, context: CallbackContext) -> None:
