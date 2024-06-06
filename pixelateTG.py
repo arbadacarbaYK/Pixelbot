@@ -15,6 +15,7 @@ load_dotenv()
 
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 MAX_THREADS = 15
+PIXELATION_FACTOR = 0.04
 RESIZE_FACTOR = 1.5
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
@@ -78,29 +79,72 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
 
-def pixelate(image):
-    """Pixelates the faces in the image. Used for processing images (photos). Applicable for both DMs and groups."""
-    faces = detect_heads(image)
-    for (x, y, w, h) in faces:
-        # Define the region of interest (ROI)
-        roi = image[y:y+h, x:x+w]
+def process_video(video_path, user_id, bot, overlay_type):
+    """Processes each frame of the video with the specified overlay. Used for processing MP4 videos. Applicable for both DMs and groups."""
+    video = mpy.VideoFileClip(video_path)
+    processed_frames = []
 
-        # Apply pixelation to the ROI
-        pixelated_roi = cv2.resize(roi, (PIXEL_SIZE, PIXEL_SIZE), interpolation=cv2.INTER_NEAREST)
-        pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
+    for progress in range(0, 101, 10):
+        print(f"Processing video frame {progress}...")
+        frames = video.snap(progress / 100)
+        for frame in frames:
+            processed_frame_path = f"processed/{user_id}_{overlay_type}_{progress}_frame.jpg"
+            frame.save_frame(processed_frame_path, quality_percent(progress))
+            processed_frames.append(processed_frame_path)
 
-        # Replace the original face region with the pixelated ROI
-        image[y:y+h, x:x+w] = pixelated_roi
+    processed_video_path = f"processed/{user_id}_{overlay_type}.mp4"
+    video.write_videoclips(processed_video_path, fps=video.fps, audio=False)
 
-    return image
+    return processed_video_path
 
-def process_image(photo_path, user_id, session_id, bot):
-    """Processes the image, applying pixelation to faces. Used for processing images (photos). Applicable for both DMs and groups."""
-    image = cv2.imread(photo_path)
-    pixelated_image = pixelate(image)
-    processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
-    cv2.imwrite(processed_path, pixelated_image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-    return processed_path
+# Overlay functions for different types
+def liotta_overlay(photo_path, user_id, bot):
+    """Applies Liotta overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
+    return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
+
+def skull_overlay(photo_path, user_id, bot):
+    """Applies Skull overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
+    return overlay(photo_path, user_id, 'skullofsatoshi', RESIZE_FACTOR, bot)
+
+def pepe_overlay(photo_path, user_id, bot):
+    """Applies Pepe overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
+    return overlay(photo_path, user_id, 'pepe', RESIZE_FACTOR, bot)
+
+def chad_overlay(photo_path, user_id, bot):
+    """Applies Chad overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
+    return overlay(photo_path, user_id, 'chad', RESIZE_FACTOR, bot)
+
+def cats_overlay(photo_path, user_id, bot):
+    """Applies Cats overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
+    return overlay(photo_path, user_id, 'cat', RESIZE_FACTOR, bot)
+
+def clowns_overlay(photo_path, user_id, bot):
+    """Applies Clowns overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
+    return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
+
+def process_gif(gif_path, session_id, user_id, bot):
+    """Processes each frame of the GIF with the specified overlay. Used for processing GIFs. Applicable for both DMs and groups."""
+    frames = imageio.mimread(gif_path)
+    processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
+    processed_gif_path = f"processed/{user_id}_{session_id}.gif"
+    imageio.mimsave(processed_gif_path, processed_frames)
+    return processed_gif_path
+
+def process_video(video_path, session_id, user_id, bot, overlay_type):
+    """Processes each frame of the video with the specified overlay. Used for processing MP4 videos. Applicable for both DMs and groups."""
+    video = mpy.VideoFileClip(video_path)
+    processed_frames = []
+
+    for progress in range(0, 101, 10):
+        print(f"Processing video frame {progress}...")
+        frames = video.subclip(progress / 100, (progress + 10) / 100)
+        for frame in frames.iter_frames():
+            processed_frame = overlay(frame, overlay_type)
+            processed_frames.append(processed_frame)
+
+    processed_video_path = f"processed/{user_id}_{session_id}_{overlay_type}.mp4"
+    mpy.ImageSequenceClip(processed_frames, fps=video.fps).write_videofile(processed_video_path, codec='libx264', fps=video.fps)
+    return processed_video_path
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     """Main handler function to process photos, GIFs, and MP4 videos, detecting faces and applying overlays or pixelating faces."""
@@ -140,8 +184,33 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+        update.message.delete()
 
+    elif update.message.document and update.message.document.mime_type == 'image/gif':
+        # Handles GIF messages for both DMs and groups
+        file_id = update.message.document.file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+        gif_path = f"downloads/{file_name}"
+        file.download(gif_path)
 
+        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
+        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
+
+    elif update.message.document and update.message.document.mime_type == 'video/mp4':
+        # Handles MP4 video messages for both DMs and groups
+        file_id = update.message.document.file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+        video_path = f"downloads/{file_name}"
+        file.download(video_path)
+
+        overlay_type = 'default_overlay'  # Set a default overlay type
+        processed_video_path = process_video(video_path, str(uuid4()), context.bot, overlay_type)
+        context.bot.send_video(chat_id=update.message.chat_id, video=open(processed_video_path, 'rb'))
+
+    else:
+        update.message.reply_text('Please send either a photo, GIF, or MP4 video.')
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
@@ -152,54 +221,48 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
 
 def button(update: Update, context: CallbackContext) -> None:
-    """Handles button clicks."""
+    """Handles button presses for selecting overlays or pixelation. Applicable for both DMs and groups."""
     query = update.callback_query
     query.answer()
-
-    # Split query data into overlay type and session ID
-    data_parts = query.data.split('_')
-    print("Data parts:", data_parts)  # Debugging
-    if len(data_parts) < 2:  # Changed to < 2 to account for the possibility of more than one session ID part
-        query.edit_message_text('Invalid button data. Please try again.')
-        return
-
-    overlay_type = data_parts[0]  # Extract overlay type
-    session_id = "_".join(data_parts[1:])  # Join remaining parts to get session ID
-    user_id = query.from_user.id
-
-    # Debugging
-    print("Overlay type:", overlay_type)
-    print("Session ID:", session_id)
-
-    # Retrieve photo path from user data
+    session_id = query.data.split('_')[-1]
     user_data = context.user_data
+
     if session_id not in user_data:
         query.edit_message_text('Session expired. Please try again.')
         return
+
     photo_path = user_data[session_id]['photo_path']
-
-    # Apply overlay or pixelation based on button clicked
-    if overlay_type == 'pixelate':
-        executor.submit(process_image, photo_path, user_id, session_id, context.bot)
-        query.edit_message_text('Pixelating faces. Please wait...')
+    user_id = user_data[session_id]['user_id']
+    
+    if 'pixelate' in query.data:
+        processed_path = pixelate(photo_path)
     else:
-        executor.submit(overlay, photo_path, user_id, overlay_type, RESIZE_FACTOR, context.bot)
-        query.edit_message_text('Applying overlay. Please wait...')
+        overlay_type = query.data.split('_')[0]  # Extract overlay type
+        if photo_path.endswith('.mp4'):
+            processed_path = process_video(photo_path, session_id, user_id, context.bot, overlay_type)
+        else:
+            processed_path = overlay(photo_path, overlay_type)
 
+    if processed_path:
+        if photo_path.endswith('.mp4'):
+            context.bot.send_video(chat_id=query.message.chat_id, video=open(processed_path, 'rb'))
+        else:
+            context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+    else:
+        query.edit_message_text('Error processing the media.')
 
-def main():
-    """Starts the bot."""
+def main() -> None:
+    """Main entry point for the bot, setting up the command and message handlers."""
     updater = Updater(TOKEN)
     dispatcher = updater.dispatcher
 
-    # Register handlers
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.photo, pixelate_faces))
+    dispatcher.add_handler(CommandHandler("pixel", pixelate_command))
     dispatcher.add_handler(CallbackQueryHandler(button))
+    dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, pixelate_faces))
 
     updater.start_polling()
     updater.idle()
 
 if __name__ == '__main__':
     main()
-
