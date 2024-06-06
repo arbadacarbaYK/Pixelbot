@@ -236,7 +236,18 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         elif query.data.startswith('liotta'):
             processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('cats_overlay'):
-            processed_path = cats_overlay(photo_path, user_or_chat
+            processed_path = cats_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query.data.startswith('skull_overlay'):
+            processed_path = skull_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query.data.startswith('pepe_overlay'):
+            processed_path = pepe_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query.data.startswith('chad_overlay'):
+            processed_path = chad_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query.data.startswith('clowns_overlay'):
+            processed_path = clowns_overlay(photo_path, user_or_chat_id, context.bot)
+
+        if processed_path:
+            context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
 
 def error(update: Update, context: CallbackContext) -> None:
     print(f'Update "{update}" caused error "{context.error}"')
