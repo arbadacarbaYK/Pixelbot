@@ -157,17 +157,13 @@ def button(update: Update, context: CallbackContext) -> None:
 
     # Split query data into overlay type and session ID
     data_parts = query.data.split('_')
-    print("Data parts:", data_parts)  # Debugging
-    if len(data_parts) != 2:
+    if len(data_parts) != 3:
         query.edit_message_text('Invalid button data. Please try again.')
         return
 
-    overlay_type, session_id = data_parts
+    overlay_type = data_parts[0]  # Extract overlay type
+    session_id = "_".join(data_parts[1:])  # Join remaining parts to get session ID
     user_id = query.from_user.id
-
-    # Debugging
-    print("Overlay type:", overlay_type)
-    print("Session ID:", session_id)
 
     # Retrieve photo path from user data
     user_data = context.user_data
@@ -183,7 +179,6 @@ def button(update: Update, context: CallbackContext) -> None:
     else:
         executor.submit(overlay, photo_path, user_id, overlay_type, RESIZE_FACTOR, context.bot)
         query.edit_message_text('Applying overlay. Please wait...')
-
 
 def main():
     """Starts the bot."""
