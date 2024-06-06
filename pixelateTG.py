@@ -235,13 +235,14 @@ def button(update: Update, context: CallbackContext) -> None:
     user_id = user_data[session_id]['user_id']
     
     if 'pixelate' in query.data:
-        processed_path = pixelate(photo_path)
+        # Pixelate functionality - handle accordingly
+        pass
     else:
         overlay_type = query.data.split('_')[0]  # Extract overlay type
         if photo_path.endswith('.mp4'):
             processed_path = process_video(photo_path, session_id, user_id, context.bot, overlay_type)
         else:
-            processed_path = overlay(photo_path, overlay_type)
+            processed_path = overlay(photo_path, user_id, overlay_type, RESIZE_FACTOR, context.bot)
 
     if processed_path:
         if photo_path.endswith('.mp4'):
@@ -250,6 +251,7 @@ def button(update: Update, context: CallbackContext) -> None:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
     else:
         query.edit_message_text('Error processing the media.')
+
 
 def main() -> None:
     """Main entry point for the bot, setting up the command and message handlers."""
