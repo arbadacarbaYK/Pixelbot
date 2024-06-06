@@ -79,22 +79,20 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
 
-def process_video(video_path, user_id, bot, overlay_type):
+def process_video(video_path, session_id, user_id, bot, overlay_type):
     """Processes each frame of the video with the specified overlay. Used for processing MP4 videos. Applicable for both DMs and groups."""
     video = mpy.VideoFileClip(video_path)
     processed_frames = []
 
     for progress in range(0, 101, 10):
         print(f"Processing video frame {progress}...")
-        frames = video.snap(progress / 100)
-        for frame in frames:
-            processed_frame_path = f"processed/{user_id}_{overlay_type}_{progress}_frame.jpg"
-            frame.save_frame(processed_frame_path, quality_percent(progress))
-            processed_frames.append(processed_frame_path)
+        frames = video.subclip(progress / 100, (progress + 10) / 100)
+        for frame in frames.iter_frames():
+            processed_frame = overlay(frame, overlay_type)
+            processed_frames.append(processed_frame)
 
-    processed_video_path = f"processed/{user_id}_{overlay_type}.mp4"
-    video.write_videoclips(processed_video_path, fps=video.fps, audio=False)
-
+    processed_video_path = f"processed/{user_id}_{session_id}_{overlay_type}.mp4"
+    mpy.ImageSequenceClip(processed_frames, fps=video.fps).write_videofile(processed_video_path, codec='libx264', fps=video.fps)
     return processed_video_path
 
 # Overlay functions for different types
@@ -129,22 +127,6 @@ def process_gif(gif_path, session_id, user_id, bot):
     processed_gif_path = f"processed/{user_id}_{session_id}.gif"
     imageio.mimsave(processed_gif_path, processed_frames)
     return processed_gif_path
-
-def process_video(video_path, session_id, user_id, bot, overlay_type):
-    """Processes each frame of the video with the specified overlay. Used for processing MP4 videos. Applicable for both DMs and groups."""
-    video = mpy.VideoFileClip(video_path)
-    processed_frames = []
-
-    for progress in range(0, 101, 10):
-        print(f"Processing video frame {progress}...")
-        frames = video.subclip(progress / 100, (progress + 10) / 100)
-        for frame in frames.iter_frames():
-            processed_frame = overlay(frame, overlay_type)
-            processed_frames.append(processed_frame)
-
-    processed_video_path = f"processed/{user_id}_{session_id}_{overlay_type}.mp4"
-    mpy.ImageSequenceClip(processed_frames, fps=video.fps).write_videofile(processed_video_path, codec='libx264', fps=video.fps)
-    return processed_video_path
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     """Main handler function to process photos, GIFs, and MP4 videos, detecting faces and applying overlays or pixelating faces."""
@@ -268,3 +250,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
