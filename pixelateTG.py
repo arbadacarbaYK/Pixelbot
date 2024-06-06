@@ -142,6 +142,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
 
 
+
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
     if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
@@ -157,13 +158,18 @@ def button(update: Update, context: CallbackContext) -> None:
 
     # Split query data into overlay type and session ID
     data_parts = query.data.split('_')
-    if len(data_parts) != 3:
+    print("Data parts:", data_parts)  # Debugging
+    if len(data_parts) < 2:  # Changed to < 2 to account for the possibility of more than one session ID part
         query.edit_message_text('Invalid button data. Please try again.')
         return
 
     overlay_type = data_parts[0]  # Extract overlay type
     session_id = "_".join(data_parts[1:])  # Join remaining parts to get session ID
     user_id = query.from_user.id
+
+    # Debugging
+    print("Overlay type:", overlay_type)
+    print("Session ID:", session_id)
 
     # Retrieve photo path from user data
     user_data = context.user_data
@@ -179,6 +185,7 @@ def button(update: Update, context: CallbackContext) -> None:
     else:
         executor.submit(overlay, photo_path, user_id, overlay_type, RESIZE_FACTOR, context.bot)
         query.edit_message_text('Applying overlay. Please wait...')
+
 
 def main():
     """Starts the bot."""
