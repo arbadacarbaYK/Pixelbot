@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
            pip install -r requirements.txt
-           pip install mtcnn
+           pip install mtcnn moviepy
 
       - name: Set Telegram BOT token
         run: echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> $GITHUB_ENV
@@ -37,5 +37,3 @@ jobs:
           python pixelateTG.py
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-
-
