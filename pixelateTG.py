@@ -79,46 +79,48 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
 
-def process_video(video_path, session_id, user_id, bot, overlay_type):
+def process_video(video_path, user_id, bot, overlay_type):
     """Processes each frame of the video with the specified overlay. Used for processing MP4 videos. Applicable for both DMs and groups."""
     video = mpy.VideoFileClip(video_path)
     processed_frames = []
 
     for progress in range(0, 101, 10):
         print(f"Processing video frame {progress}...")
-        frames = video.subclip(progress / 100, (progress + 10) / 100)
-        for frame in frames.iter_frames():
-            processed_frame = overlay(frame, overlay_type)
-            processed_frames.append(processed_frame)
+        frames = video.snap(progress / 100)
+        for frame in frames:
+            processed_frame_path = f"processed/{user_id}_{overlay_type}_{progress}_frame.jpg"
+            frame.save_frame(processed_frame_path, quality_percent(progress))
+            processed_frames.append(processed_frame_path)
 
-    processed_video_path = f"processed/{user_id}_{session_id}_{overlay_type}.mp4"
-    mpy.ImageSequenceClip(processed_frames, fps=video.fps).write_videofile(processed_video_path, codec='libx264', fps=video.fps)
+    processed_video_path = f"processed/{user_id}_{overlay_type}.mp4"
+    video.write_videoclips(processed_video_path, fps=video.fps, audio=False)
+
     return processed_video_path
 
 # Overlay functions for different types
 def liotta_overlay(photo_path, user_id, bot):
     """Applies Liotta overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'liotta_overlay.png', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
 
 def skull_overlay(photo_path, user_id, bot):
     """Applies Skull overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'skull_overlay.png', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'skullofsatoshi', RESIZE_FACTOR, bot)
 
 def pepe_overlay(photo_path, user_id, bot):
     """Applies Pepe overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'pepe_overlay.png', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'pepe', RESIZE_FACTOR, bot)
 
 def chad_overlay(photo_path, user_id, bot):
     """Applies Chad overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'chad_overlay.png', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'chad', RESIZE_FACTOR, bot)
 
 def cats_overlay(photo_path, user_id, bot):
     """Applies Cats overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'cats_overlay.png', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'cat', RESIZE_FACTOR, bot)
 
 def clowns_overlay(photo_path, user_id, bot):
     """Applies Clowns overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'clown_overlay.png', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
 
 def process_gif(gif_path, session_id, user_id, bot):
     """Processes each frame of the GIF with the specified overlay. Used for processing GIFs. Applicable for both DMs and groups."""
@@ -154,11 +156,14 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
             [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
              InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')],
-            [InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],
+             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')]
         ]
+        
+        if update.message.chat.type == 'private':
+            keyboard.append([InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')])
 
+        keyboard.append([InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')])
+        
         reply_markup = InlineKeyboardMarkup(keyboard)
         user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
@@ -191,7 +196,6 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('Please send either a photo, GIF, or MP4 video.')
 
-
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
     if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
@@ -214,26 +218,25 @@ def button(update: Update, context: CallbackContext) -> None:
     photo_path = user_data[session_id]['photo_path']
     user_id = user_data[session_id]['user_id']
     
-    processed_path = None  # Initialize processed_path
-
     if 'pixelate' in query.data:
-        # Pixelate functionality - handle accordingly
-        pass
+        processed_path = pixelate(photo_path)
+    elif 'liotta_overlay' in query.data:
+        processed_path = liotta_overlay(photo_path, user_id, context.bot)
+    elif 'skull_overlay' in query.data:
+        processed_path = skull_overlay(photo_path, user_id, context.bot)
+    elif 'pepe_overlay' in query.data:
+        processed_path = pepe_overlay(photo_path, user_id, context.bot)
+    elif 'chad_overlay' in query.data:
+        processed_path = chad_overlay(photo_path, user_id, context.bot)
+    elif 'cats_overlay' in query.data:
+        processed_path = cats_overlay(photo_path, user_id, context.bot)
+    elif 'clowns_overlay' in query.data:
+        processed_path = clowns_overlay(photo_path, user_id, context.bot)
     else:
-        overlay_type = query.data.split('_')[0]  # Extract overlay type
-        if photo_path.endswith('.mp4'):
-            processed_path = process_video(photo_path, session_id, user_id, context.bot, overlay_type)
-        else:
-            processed_path = overlay(photo_path, user_id, overlay_type, RESIZE_FACTOR, context.bot)
+        query.edit_message_text('Invalid option. Please try again.')
+        return
 
-    if processed_path:  # Now it's safe to check if processed_path has a value
-        if photo_path.endswith('.mp4'):
-            context.bot.send_video(chat_id=query.message.chat_id, video=open(processed_path, 'rb'))
-        else:
-            context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-    else:
-        query.edit_message_text('Error processing the media.')
-
+    context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
 
 def main() -> None:
     """Main entry point for the bot, setting up the command and message handlers."""
@@ -250,4 +253,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
