@@ -102,28 +102,24 @@ def clowns_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
 
 def process_image(photo_path, user_id, session_id, bot):
-    print("Processing image...")
-    try:
-        image = cv2.imread(photo_path)
-        faces = detect_heads(image)
+    image = cv2.imread(photo_path)
+    faces = detect_heads(image)
 
-        for (x, y, w, h) in faces:
-            roi = image[y:y+h, x:x+w]
+    for (x, y, w, h) in faces:
+        # Define the region of interest (ROI)
+        roi = image[y:y+h, x:x+w]
 
-            pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
-            pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
-            pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
+        # Apply pixelation to the ROI
+        pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))  # Ensure pixelation size is at least 1
+        pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
+        pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
 
-            image[y:y+h, x:x+w] = pixelated_roi
+        # Replace the original face region with the pixelated ROI
+        image[y:y+h, x:x+w] = pixelated_roi
 
-        processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
-        cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-        print("Image processed successfully.")
-        return processed_path
-    except Exception as e:
-        print(f"Error processing image: {e}")
-        return None
-
+    processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+    return processed_path
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
@@ -149,14 +145,10 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
             [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
              InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')]
+             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
+             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
         ]
-        
-        if update.message.chat.type == 'private':
-            keyboard.append([InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')])
-
-        keyboard.append([InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')])
-        
         reply_markup = InlineKeyboardMarkup(keyboard)
         user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
@@ -210,50 +202,41 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
         update.message.delete()
 
-def button(update: Update, context: CallbackContext) -> None:
+def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
-
+    session_id = query.data.split('_')[-1]
     user_data = context.user_data
     chat_data = context.chat_data
+    data = user_data.get(session_id) or chat_data.get(session_id)
 
-    data = query.data.split('_')
-    action = data[0]
-    session_id = data[-1]
+    if data:
+        photo_path = data.get('photo_path')
+        user_or_chat_id = data.get('user_id') or data.get('chat_id')
 
-    if session_id in user_data:
-        photo_path = user_data[session_id]['photo_path']
-        user_id = user_data[session_id]['user_id']
+        if query.data.startswith('cancel'):
+            processed_file_path = f"processed/{user_or_chat_id}_{session_id}_pixelated.jpg"
+            if os.path.exists(processed_file_path):
+                os.remove(processed_file_path)
 
-        if action == 'cancel':
+            if os.path.exists(photo_path):
+                os.remove(photo_path)
+
+            if session_id in user_data:
+                del user_data[session_id]
+            if session_id in chat_data:
+                del chat_data[session_id]
             query.message.delete()
             return
 
-        bot = context.bot
-        if action == 'pixelate':
-            processed_photo_path = process_image(photo_path, user_id, session_id, bot)
-        else:
-            overlay_function = {
-                'liotta': liotta_overlay,
-                'skull': skull_overlay,
-                'pepe': pepe_overlay,
-                'chad': chad_overlay,
-                'cats': cats_overlay,
-                'clowns': clowns_overlay
-            }.get(action)
+        processed_path = None
 
-            if overlay_function:
-                processed_photo_path = overlay_function(photo_path, user_id, bot)
-
-        if processed_photo_path:
-            bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_photo_path, 'rb'))
-            query.message.delete()
-            os.remove(processed_photo_path)
-
-        if photo_path:
-            os.remove(photo_path)
-
-        del user_data[session_id]
+        if query.data.startswith('pixelate'):
+            processed_path = process_image(photo_path, user_or_chat_id, session_id, context.bot)
+        elif query.data.startswith('liotta'):
+            processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
+        elif query.data.startswith('cats_overlay'):
+            processed_path = cats_overlay(photo_path, user_or_chat
 
 def error(update: Update, context: CallbackContext) -> None:
     print(f'Update "{update}" caused error "{context.error}"')
