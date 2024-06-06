@@ -102,21 +102,28 @@ def clowns_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
 
 def process_image(photo_path, user_id, session_id, bot):
-    image = cv2.imread(photo_path)
-    faces = detect_heads(image)
+    print("Processing image...")
+    try:
+        image = cv2.imread(photo_path)
+        faces = detect_heads(image)
 
-    for (x, y, w, h) in faces:
-        roi = image[y:y+h, x:x+w]
+        for (x, y, w, h) in faces:
+            roi = image[y:y+h, x:x+w]
 
-        pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
-        pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
-        pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
+            pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
+            pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
+            pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
 
-        image[y:y+h, x:x+w] = pixelated_roi
+            image[y:y+h, x:x+w] = pixelated_roi
 
-    processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
-    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-    return processed_path
+        processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
+        cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        print("Image processed successfully.")
+        return processed_path
+    except Exception as e:
+        print(f"Error processing image: {e}")
+        return None
+
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
