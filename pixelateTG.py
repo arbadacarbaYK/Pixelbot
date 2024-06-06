@@ -98,27 +98,27 @@ def process_video(video_path, session_id, user_id, bot, overlay_type):
 # Overlay functions for different types
 def liotta_overlay(photo_path, user_id, bot):
     """Applies Liotta overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'liotta_overlay.png', RESIZE_FACTOR, bot)
 
 def skull_overlay(photo_path, user_id, bot):
     """Applies Skull overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'skullofsatoshi', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'skull_overlay.png', RESIZE_FACTOR, bot)
 
 def pepe_overlay(photo_path, user_id, bot):
     """Applies Pepe overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'pepe', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'pepe_overlay.png', RESIZE_FACTOR, bot)
 
 def chad_overlay(photo_path, user_id, bot):
     """Applies Chad overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'chad', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'chad_overlay.png', RESIZE_FACTOR, bot)
 
 def cats_overlay(photo_path, user_id, bot):
     """Applies Cats overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'cat', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'cats_overlay.png', RESIZE_FACTOR, bot)
 
 def clowns_overlay(photo_path, user_id, bot):
     """Applies Clowns overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
+    return overlay(photo_path, user_id, 'clown_overlay.png', RESIZE_FACTOR, bot)
 
 def process_gif(gif_path, session_id, user_id, bot):
     """Processes each frame of the GIF with the specified overlay. Used for processing GIFs. Applicable for both DMs and groups."""
