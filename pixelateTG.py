@@ -259,7 +259,7 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("pixelate", pixelate_command))
     dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, pixelate_faces))
-    dispatcher.add_handler(CallbackQueryHandler(button))
+    dispatcher.add_handler(CallbackQueryHandler(button_callback))
     dispatcher.add_error_handler(error)
 
     updater.start_polling()
