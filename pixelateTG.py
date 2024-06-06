@@ -140,33 +140,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-        update.message.delete()
 
-    elif update.message.document and update.message.document.mime_type == 'image/gif':
-        # Handles GIF messages for both DMs and groups
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        gif_path = f"downloads/{file_name}"
-        file.download(gif_path)
-
-        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
-
-    elif update.message.document and update.message.document.mime_type == 'video/mp4':
-        # Handles MP4 video messages for both DMs and groups
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        video_path = f"downloads/{file_name}"
-        file.download(video_path)
-
-        overlay_type = 'default_overlay'  # Set a default overlay type
-        processed_video_path = process_video(video_path, str(uuid4()), context.bot, overlay_type)
-        context.bot.send_video(chat_id=update.message.chat_id, video=open(processed_video_path, 'rb'))
-
-    else:
-        update.message.reply_text('Please send either a photo, GIF, or MP4 video.')
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
