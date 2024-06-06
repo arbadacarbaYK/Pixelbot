@@ -130,6 +130,21 @@ def process_gif(gif_path, session_id, user_id, bot):
     imageio.mimsave(processed_gif_path, processed_frames)
     return processed_gif_path
 
+def pixelate(photo_path):
+    """Pixelates detected faces in the photo."""
+    image = cv2.imread(photo_path)
+    heads = detect_heads(image)
+    
+    for (x, y, w, h) in heads:
+        face = image[y:y+h, x:x+w]
+        face = cv2.resize(face, (int(w * PIXELATION_FACTOR), int(h * PIXELATION_FACTOR)), interpolation=cv2.INTER_LINEAR)
+        face = cv2.resize(face, (w, h), interpolation=cv2.INTER_NEAREST)
+        image[y:y+h, x:x+w] = face
+    
+    processed_path = f"processed/{uuid4()}_pixelated.jpg"
+    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+    return processed_path
+
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     """Main handler function to process photos, GIFs, and MP4 videos, detecting faces and applying overlays or pixelating faces."""
     session_id = str(uuid4())
@@ -160,97 +175,59 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         ]
         
         if update.message.chat.type == 'private':
-            keyboard.append([InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')])
+            keyboard.append([InlineKeyboardButton("🟦 Pixelate", callback_data=f'pixelate_{session_id}')])
 
-        keyboard.append([InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')])
-        
+        user_data[session_id] = photo_path
         reply_markup = InlineKeyboardMarkup(keyboard)
-        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
-
-        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-        update.message.delete()
-
-    elif update.message.document and update.message.document.mime_type == 'image/gif':
-        # Handles GIF messages for both DMs and groups
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        gif_path = f"downloads/{file_name}"
-        file.download(gif_path)
-
-        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
-
-    elif update.message.document and update.message.document.mime_type == 'video/mp4':
-        # Handles MP4 video messages for both DMs and groups
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        video_path = f"downloads/{file_name}"
-        file.download(video_path)
-
-        overlay_type = 'default_overlay'  # Set a default overlay type
-        processed_video_path = process_video(video_path, str(uuid4()), context.bot, overlay_type)
-        context.bot.send_video(chat_id=update.message.chat_id, video=open(processed_video_path, 'rb'))
-
+        update.message.reply_text('Choose an overlay or pixelate option:', reply_markup=reply_markup)
     else:
-        update.message.reply_text('Please send either a photo, GIF, or MP4 video.')
+        update.message.reply_text('Please send a photo for processing.')
 
-def pixelate_command(update: Update, context: CallbackContext) -> None:
-    """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
-    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
-        context.args = ['pixelate']
-        pixelate_faces(update, context)
-    else:
-        update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
-
-def button(update: Update, context: CallbackContext) -> None:
-    """Handles button presses for selecting overlays or pixelation. Applicable for both DMs and groups."""
+def handle_button_click(update: Update, context: CallbackContext) -> None:
+    """Handles the button click for selecting overlays and pixelation. Applicable for both DMs and groups."""
     query = update.callback_query
-    query.answer()
+    user_id = query.from_user.id
     session_id = query.data.split('_')[-1]
-    user_data = context.user_data
+    action = query.data.rsplit('_', 1)[0]
 
-    if session_id not in user_data:
-        query.edit_message_text('Session expired. Please try again.')
+    if session_id not in context.user_data:
+        query.answer(text='Session expired. Please send a new photo.')
         return
 
-    photo_path = user_data[session_id]['photo_path']
-    user_id = user_data[session_id]['user_id']
-    
-    if 'pixelate' in query.data:
+    photo_path = context.user_data[session_id]
+
+    if action == 'pixelate':
         processed_path = pixelate(photo_path)
-    elif 'liotta_overlay' in query.data:
-        processed_path = liotta_overlay(photo_path, user_id, context.bot)
-    elif 'skull_overlay' in query.data:
-        processed_path = skull_overlay(photo_path, user_id, context.bot)
-    elif 'pepe_overlay' in query.data:
-        processed_path = pepe_overlay(photo_path, user_id, context.bot)
-    elif 'chad_overlay' in query.data:
-        processed_path = chad_overlay(photo_path, user_id, context.bot)
-    elif 'cats_overlay' in query.data:
-        processed_path = cats_overlay(photo_path, user_id, context.bot)
-    elif 'clowns_overlay' in query.data:
+    elif action == 'clowns_overlay':
         processed_path = clowns_overlay(photo_path, user_id, context.bot)
+    elif action == 'liotta_overlay':
+        processed_path = liotta_overlay(photo_path, user_id, context.bot)
+    elif action == 'skull_overlay':
+        processed_path = skull_overlay(photo_path, user_id, context.bot)
+    elif action == 'cats_overlay':
+        processed_path = cats_overlay(photo_path, user_id, context.bot)
+    elif action == 'pepe_overlay':
+        processed_path = pepe_overlay(photo_path, user_id, context.bot)
+    elif action == 'chad_overlay':
+        processed_path = chad_overlay(photo_path, user_id, context.bot)
     else:
-        query.edit_message_text('Invalid option. Please try again.')
+        query.answer(text='Invalid action.')
         return
 
     context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+    query.answer()
 
-def main() -> None:
-    """Main entry point for the bot, setting up the command and message handlers."""
-    updater = Updater(TOKEN)
+def main():
+    """Main function to start the bot and define handlers. Applicable for both DMs and groups."""
+    updater = Updater(TOKEN, use_context=True)
     dispatcher = updater.dispatcher
 
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("pixel", pixelate_command))
-    dispatcher.add_handler(CallbackQueryHandler(button))
-    dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, pixelate_faces))
+    dispatcher.add_handler(CommandHandler('start', start))
+    dispatcher.add_handler(MessageHandler(Filters.photo, pixelate_faces))
+    dispatcher.add_handler(CallbackQueryHandler(handle_button_click))
 
     updater.start_polling()
     updater.idle()
 
 if __name__ == '__main__':
     main()
-
