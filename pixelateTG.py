@@ -180,7 +180,6 @@ def button(update: Update, context: CallbackContext) -> None:
         query.edit_message_text('Applying overlay. Please wait...')
 
 
-
 def main():
     """Starts the bot."""
     updater = Updater(TOKEN)
