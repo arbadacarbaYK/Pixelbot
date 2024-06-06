@@ -177,56 +177,35 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
 
 def button(update: Update, context: CallbackContext) -> None:
-    """Handles button presses for selecting overlays or pixelation. Applicable for both DMs and groups."""
-    query = update.callback_query
-    query.answer()
-    session_id = query.data.split('_')[-1]
-    user_data = context.user_data
-
-    if session_id not in user_data:
-        query.edit_message_text('Session expired. Please try again.')
-        return
-
-    photo_path = user_data[session_id]['photo_path']
-    user_id = user_data[session_id]['user_id']
-    
-    if 'pixelate' in query.data:
-        processed_path = process_image(photo_path, user_id, session_id, context.bot)
-    elif 'liotta_overlay' in query.data:
-        processed_path = liotta_overlay(photo_path, user_id, context.bot)
-    elif 'skull_overlay' in query.data:
-        processed_path = skull_overlay(photo_path, user_id, context.bot)
-    elif 'pepe_overlay' in query.data:
-        processed_path = pepe_overlay(photo_path, user_id, context.bot)
-    elif 'chad_overlay' in query.data:
-        processed_path = chad_overlay(photo_path, user_id, context.bot)
-    elif 'cats_overlay' in query.data:
-        processed_path = cats_overlay(photo_path, user_id, context.bot)
-    elif 'clowns_overlay' in query.data:
-        processed_path = clowns_overlay(photo_path, user_id, context.bot)
-    else:
-        query.edit_message_text('Invalid option. Please try again.')
-        return
-
-    context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-
-
-def button(update: Update, context: CallbackContext) -> None:
     """Handles button clicks."""
     query = update.callback_query
     query.answer()
 
-    overlay_type, session_id = query.data.split('_')
+    # Split query data into overlay type and session ID
+    data_parts = query.data.split('_')
+    if len(data_parts) != 2:
+        query.edit_message_text('Invalid button data. Please try again.')
+        return
+
+    overlay_type, session_id = data_parts
     user_id = query.from_user.id
 
-    photo_path = context.user_data[session_id]['photo_path']
+    # Retrieve photo path from user data
+    user_data = context.user_data
+    if session_id not in user_data:
+        query.edit_message_text('Session expired. Please try again.')
+        return
+    photo_path = user_data[session_id]['photo_path']
 
+    # Apply overlay or pixelation based on button clicked
     if overlay_type == 'pixelate':
         executor.submit(process_image, photo_path, user_id, session_id, context.bot)
         query.edit_message_text('Pixelating faces. Please wait...')
     else:
         executor.submit(overlay, photo_path, user_id, overlay_type, RESIZE_FACTOR, context.bot)
         query.edit_message_text('Applying overlay. Please wait...')
+
+
 
 def main():
     """Starts the bot."""
