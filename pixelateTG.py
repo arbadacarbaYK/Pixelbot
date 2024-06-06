@@ -234,6 +234,8 @@ def button(update: Update, context: CallbackContext) -> None:
     photo_path = user_data[session_id]['photo_path']
     user_id = user_data[session_id]['user_id']
     
+    processed_path = None  # Initialize processed_path
+
     if 'pixelate' in query.data:
         # Pixelate functionality - handle accordingly
         pass
@@ -244,7 +246,7 @@ def button(update: Update, context: CallbackContext) -> None:
         else:
             processed_path = overlay(photo_path, user_id, overlay_type, RESIZE_FACTOR, context.bot)
 
-    if processed_path:
+    if processed_path:  # Now it's safe to check if processed_path has a value
         if photo_path.endswith('.mp4'):
             context.bot.send_video(chat_id=query.message.chat_id, video=open(processed_path, 'rb'))
         else:
