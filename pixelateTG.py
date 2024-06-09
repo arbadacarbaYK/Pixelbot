@@ -219,7 +219,14 @@ def process_image(photo_path, user_id, session_id, bot):
     return processed_path
 
 
-import os
+def pixelate_command(update: Update, context: CallbackContext) -> None:
+    """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
+    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
+        context.args = ['pixelate']
+        pixelate_faces(update, context)
+    else:
+        update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
+
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
