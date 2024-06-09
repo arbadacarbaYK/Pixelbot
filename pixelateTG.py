@@ -118,7 +118,6 @@ def handle_photo(update: Update, context: CallbackContext) -> None:
 
     if not faces:
         update.message.reply_text('No faces detected in the image.')
-        os.remove(photo_path)  # Delete the original photo file
         return
 
     keyboard = [
@@ -138,7 +137,6 @@ def handle_photo(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
     update.message.delete()
 
-
 def handle_gif_or_video(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
     user_data = context.user_data
@@ -155,22 +153,12 @@ def handle_gif_or_video(update: Update, context: CallbackContext) -> None:
             if mime_type == 'image/gif':
                 processed_gif_path = process_gif(media_path, session_id, str(uuid4()), context.bot)
                 context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
-                os.remove(media_path)  # Delete the original GIF file after processing
             elif mime_type == 'video/mp4':
                 processed_video_path = process_video(media_path, session_id, str(uuid4()), context.bot)
                 context.bot.send_video(chat_id=update.message.chat_id, video=open(processed_video_path, 'rb'))
-                os.remove(media_path)  # Delete the original video file after processing
 
     else:
         update.message.reply_text('Please send either a GIF or a video.')
-
-def pixelate_command(update: Update, context: CallbackContext) -> None:
-    """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
-    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
-        context.args = ['pixelate']
-        pixelate_faces(update, context)
-    else:
-        update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     """Handles button presses for selecting overlays or pixelation. Applicable for both DMs and groups."""
@@ -207,9 +195,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     processed_file_path = f"processed/{user_id}_{session_id}_processed.jpg"
     cv2.imwrite(processed_file_path, processed_path, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_file_path, 'rb'))
-    
-    os.remove(photo_path)  # Delete the original photo file after processing
-
 
 def main() -> None:
     updater = Updater(TOKEN)
@@ -227,4 +212,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
