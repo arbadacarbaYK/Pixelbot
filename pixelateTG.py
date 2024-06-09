@@ -1,22 +1,22 @@
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # Import the load_dotenv function from python-dotenv
 import cv2
 import random
 import imageio
+import moviepy.editor as mp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
-import moviepy.editor as mpy
 
 # Load environment variables from .env file
 load_dotenv()
 
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Get the Telegram bot token from the environment variable
 MAX_THREADS = 15
 PIXELATION_FACTOR = 0.04
-RESIZE_FACTOR = 1.5
+RESIZE_FACTOR = 1.5  # Common resize factor
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -24,16 +24,14 @@ def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, GIF, or MP4 video, and I will process faces in it!')
 
 def detect_heads(image):
-    """Detects faces in an image using MTCNN. Used for processing images (photos). Applicable for both DMs and groups."""
     mtcnn = MTCNN()
     faces = mtcnn.detect_faces(image)
     head_boxes = [(face['box'][0], face['box'][1], int(RESIZE_FACTOR * face['box'][2]), int(RESIZE_FACTOR * face['box'][3])) for face in faces]
     head_boxes.sort(key=lambda box: box[1])
     return head_boxes
 
-def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
-    """Applies the specified overlay to detected faces in the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    image = cv2.imread(photo_path)
+def overlay(image, overlay_type):
+    """Applies the specified overlay to detected faces in the image."""
     heads = detect_heads(image)
 
     for (x, y, w, h) in heads:
@@ -44,14 +42,14 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
         original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
 
-        new_width = int(resize_factor * w)
+        new_width = int(RESIZE_FACTOR * w)
         new_height = int(new_width / original_aspect_ratio)
 
         center_x = x + w // 2
         center_y = y + h // 2
 
-        overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.1 * resize_factor * w)
-        overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
+        overlay_x = int(center_x - 0.5 * RESIZE_FACTOR * w) - int(0.1 * RESIZE_FACTOR * w)
+        overlay_y = int(center_y - 0.5 * RESIZE_FACTOR * h) - int(0.1 * RESIZE_FACTOR * w)
 
         overlay_x = max(0, overlay_x)
         overlay_y = max(0, overlay_y)
@@ -74,137 +72,100 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         except ValueError as e:
             print(f"Error blending overlay: {e}")
             continue
+    return image
 
-    processed_path = f"processed/{user_id}_{overlay_type}.jpg"
-    cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-    return processed_path
+def process_image(image, overlay_type=None):
+    faces = detect_heads(image)
+    for (x, y, w, h) in faces:
+        roi = image[y:y+h, x:x+w]
+        pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
+        pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
+        pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
+        image[y:y+h, x:x+w] = pixelated_roi
+    if overlay_type:
+        image = overlay(image, overlay_type)
+    return image
 
-def process_video(video_path, user_id, bot, overlay_type):
-    """Processes each frame of the video with the specified overlay. Used for processing MP4 videos. Applicable for both DMs and groups."""
-    video = mpy.VideoFileClip(video_path)
-    processed_frames = []
-
-    for progress in range(0, 101, 10):
-        print(f"Processing video frame {progress}...")
-        frames = video.snap(progress / 100)
-        for frame in frames:
-            processed_frame_path = f"processed/{user_id}_{overlay_type}_{progress}_frame.jpg"
-            frame.save_frame(processed_frame_path, quality_percent(progress))
-            processed_frames.append(processed_frame_path)
-
-    processed_video_path = f"processed/{user_id}_{overlay_type}.mp4"
-    video.write_videoclips(processed_video_path, fps=video.fps, audio=False)
-
+def process_video(video_path, session_id, user_id, overlay_type=None):
+    clip = mp.VideoFileClip(video_path)
+    frames = [frame for frame in clip.iter_frames()]
+    processed_frames = [process_image(frame, overlay_type) for frame in frames]
+    processed_clip = mp.ImageSequenceClip(processed_frames, fps=clip.fps)
+    processed_video_path = f"processed/{user_id}_{session_id}.mp4"
+    processed_clip.write_videofile(processed_video_path, codec='libx264')
     return processed_video_path
 
-# Overlay functions for different types
-def liotta_overlay(photo_path, user_id, bot):
-    """Applies Liotta overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
-
-def skull_overlay(photo_path, user_id, bot):
-    """Applies Skull overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'skullofsatoshi', RESIZE_FACTOR, bot)
-
-def pepe_overlay(photo_path, user_id, bot):
-    """Applies Pepe overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'pepe', RESIZE_FACTOR, bot)
-
-def chad_overlay(photo_path, user_id, bot):
-    """Applies Chad overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'chad', RESIZE_FACTOR, bot)
-
-def cats_overlay(photo_path, user_id, bot):
-    """Applies Cats overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'cat', RESIZE_FACTOR, bot)
-
-def clowns_overlay(photo_path, user_id, bot):
-    """Applies Clowns overlay to the photo. Used for processing images (photos). Applicable for both DMs and groups."""
-    return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
-
-def process_gif(gif_path, session_id, user_id, bot):
-    """Processes each frame of the GIF with the specified overlay. Used for processing GIFs. Applicable for both DMs and groups."""
+def process_gif(gif_path, session_id, user_id, overlay_type=None):
     frames = imageio.mimread(gif_path)
-    processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
+    processed_frames = [process_image(frame, overlay_type) for frame in frames]
     processed_gif_path = f"processed/{user_id}_{session_id}.gif"
-    imageio.mimsave(processed_gif_path, processed_frames)
+    imageio.mimsave(processed_gif_path, processed_frames, duration=0.1)
     return processed_gif_path
 
-def pixelate_faces(update: Update, context: CallbackContext) -> None:
-    """Main handler function to process photos, GIFs, and MP4 videos, detecting faces and applying overlays or pixelating faces."""
+def handle_photo(update: Update, context: CallbackContext) -> None:
+    """Handles photo messages for both DMs and groups."""
     session_id = str(uuid4())
     user_data = context.user_data
 
-    if update.message.photo:
-        # Handles photo messages for both DMs and groups
-        file_id = update.message.photo[-1].file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        photo_path = f"downloads/{file_name}"
-        file.download(photo_path)
+    file_id = update.message.photo[-1].file_id
+    file = context.bot.get_file(file_id)
+    file_name = file.file_path.split('/')[-1]
+    photo_path = f"downloads/{file_name}"
+    file.download(photo_path)
 
-        image = cv2.imread(photo_path)
-        faces = detect_heads(image)
+    image = cv2.imread(photo_path)
+    faces = detect_heads(image)
 
-        if not faces:
-            update.message.reply_text('No faces detected in the image.')
-            return
+    if not faces:
+        update.message.reply_text('No faces detected in the image.')
+        os.remove(photo_path)  # Delete the original photo file
+        return
 
-        keyboard = [
-            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
-             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
-            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
-             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')]
-        ]
-        
-        if update.message.chat.type == 'private':
-            keyboard.append([InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')])
+    keyboard = [
+        [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
+         InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
+         InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
+        [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
+         InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
+         InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+        [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')],
+        [InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
+    ]
 
-        keyboard.append([InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')])
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
-        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-        update.message.delete()
+    update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+    update.message.delete()
 
-    elif update.message.document and update.message.document.mime_type == 'image/gif':
-        # Handles GIF messages for both DMs and groups
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        gif_path = f"downloads/{file_name}"
-        file.download(gif_path)
 
-        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
+def handle_gif_or_video(update: Update, context: CallbackContext) -> None:
+    session_id = str(uuid4())
+    user_data = context.user_data
 
-    elif update.message.document and update.message.document.mime_type == 'video/mp4':
-        # Handles MP4 video messages for both DMs and groups
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        video_path = f"downloads/{file_name}"
-        file.download(video_path)
+    if update.message.document:
+        mime_type = update.message.document.mime_type
+        if mime_type in ['image/gif', 'video/mp4']:
+            file_id = update.message.document.file_id
+            file = context.bot.get_file(file_id)
+            file_name = file.file_path.split('/')[-1]
+            media_path = f"downloads/{file_name}"
+            file.download(media_path)
 
-        overlay_type = 'default_overlay'  # Set a default overlay type
-        processed_video_path = process_video(video_path, str(uuid4()), context.bot, overlay_type)
-        context.bot.send_video(chat_id=update.message.chat_id, video=open(processed_video_path, 'rb'))
+            if mime_type == 'image/gif':
+                processed_gif_path = process_gif(media_path, session_id, str(uuid4()), context.bot)
+                context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
+                os.remove(media_path)  # Delete the original GIF file after processing
+            elif mime_type == 'video/mp4':
+                processed_video_path = process_video(media_path, session_id, str(uuid4()), context.bot)
+                context.bot.send_video(chat_id=update.message.chat_id, video=open(processed_video_path, 'rb'))
+                os.remove(media_path)  # Delete the original video file after processing
 
     else:
-        update.message.reply_text('Please send either a photo, GIF, or MP4 video.')
+        update.message.reply_text('Please send either a GIF or a video.')
 
-def pixelate_command(update: Update, context: CallbackContext) -> None:
-    """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
-    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
-        context.args = ['pixelate']
-        pixelate_faces(update, context)
-    else:
-        update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
 
-def button(update: Update, context: CallbackContext) -> None:
+def button_callback(update: Update, context: CallbackContext) -> None:
     """Handles button presses for selecting overlays or pixelation. Applicable for both DMs and groups."""
     query = update.callback_query
     query.answer()
@@ -219,37 +180,44 @@ def button(update: Update, context: CallbackContext) -> None:
     user_id = user_data[session_id]['user_id']
     
     if 'pixelate' in query.data:
-        processed_path = pixelate(photo_path)
+        processed_path = process_image(cv2.imread(photo_path))
     elif 'liotta_overlay' in query.data:
-        processed_path = liotta_overlay(photo_path, user_id, context.bot)
+        processed_path = overlay(cv2.imread(photo_path), 'liotta')
     elif 'skull_overlay' in query.data:
-        processed_path = skull_overlay(photo_path, user_id, context.bot)
+        processed_path = overlay(cv2.imread(photo_path), 'skullofsatoshi')
     elif 'pepe_overlay' in query.data:
-        processed_path = pepe_overlay(photo_path, user_id, context.bot)
+        processed_path = overlay(cv2.imread(photo_path), 'pepe')
     elif 'chad_overlay' in query.data:
-        processed_path = chad_overlay(photo_path, user_id, context.bot)
+        processed_path = overlay(cv2.imread(photo_path), 'chad')
     elif 'cats_overlay' in query.data:
-        processed_path = cats_overlay(photo_path, user_id, context.bot)
+        processed_path = overlay(cv2.imread(photo_path), 'cat')
     elif 'clowns_overlay' in query.data:
-        processed_path = clowns_overlay(photo_path, user_id, context.bot)
+        processed_path = overlay(cv2.imread(photo_path), 'clown')
     else:
         query.edit_message_text('Invalid option. Please try again.')
         return
 
-    context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
+    processed_file_path = f"processed/{user_id}_{session_id}_processed.jpg"
+    cv2.imwrite(processed_file_path, processed_path, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+    context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_file_path, 'rb'))
+    
+    os.remove(photo_path)  # Delete the original photo file after processing
+
 
 def main() -> None:
-    """Main entry point for the bot, setting up the command and message handlers."""
     updater = Updater(TOKEN)
+
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("pixel", pixelate_command))
-    dispatcher.add_handler(CallbackQueryHandler(button))
-    dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, pixelate_faces))
+    dispatcher.add_handler(MessageHandler(Filters.photo & Filters.private, handle_photo))
+    dispatcher.add_handler(MessageHandler(Filters.document.mime_type(['image/gif', 'video/mp4']), handle_gif_or_video))
+    dispatcher.add_handler(CallbackQueryHandler(button_callback))
 
     updater.start_polling()
     updater.idle()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
+
