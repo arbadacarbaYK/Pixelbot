@@ -164,6 +164,13 @@ def handle_gif_or_video(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('Please send either a GIF or a video.')
 
+def pixelate_command(update: Update, context: CallbackContext) -> None:
+    """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
+    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
+        context.args = ['pixelate']
+        pixelate_faces(update, context)
+    else:
+        update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     """Handles button presses for selecting overlays or pixelation. Applicable for both DMs and groups."""
