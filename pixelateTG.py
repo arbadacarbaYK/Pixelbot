@@ -25,7 +25,7 @@ def start(update: Update, context: CallbackContext) -> None:
     """Handles the /start command to welcome the user. Applicable for both DMs and groups."""
     update.message.reply_text('Send me a picture, GIF, or MP4 video, and I will process faces in it!')
 
-ef detect_heads(gif_path):
+def detect_heads(gif_path):
     gif = giflib.GIF(image_files=[gif_path])
     frames = gif.convert_frames()
     faces = []
