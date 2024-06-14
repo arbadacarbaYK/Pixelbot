@@ -3,6 +3,8 @@ from dotenv import load_dotenv  # Import the load_dotenv function from python-do
 import cv2
 import random
 import imageio
+import gifpy
+from mtcnn.mtcnn import MTCNN
 import moviepy.editor as mp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
@@ -23,56 +25,48 @@ def start(update: Update, context: CallbackContext) -> None:
     """Handles the /start command to welcome the user. Applicable for both DMs and groups."""
     update.message.reply_text('Send me a picture, GIF, or MP4 video, and I will process faces in it!')
 
-def detect_heads(image):
-    mtcnn = MTCNN()
-    faces = mtcnn.detect_faces(image)
-    head_boxes = [(face['box'][0], face['box'][1], int(RESIZE_FACTOR * face['box'][2]), int(RESIZE_FACTOR * face['box'][3])) for face in faces]
-    head_boxes.sort(key=lambda box: box[1])
-    return head_boxes
+def detect_heads(gif_path):
+    gif = gifpy.GIF(image_files=[gif_path])
+    frames = gif.convert_frames()
+    faces = []
+    for frame in frames:
+        image = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        detector = MTCNN()
+        face_boxes = detector.detect_faces(image)
+        for face in face_boxes:
+            face['box'] = [int(face['box'][0] * RESIZE_FACTOR), int(face['box'][1] * RESIZE_FACTOR), int(face['box'][2] * RESIZE_FACTOR), int(face['box'][3] * RESIZE_FACTOR)]
+            faces.append(face)
+    return faces
 
-def overlay(image, overlay_type):
-    """Applies the specified overlay to detected faces in the image."""
-    heads = detect_heads(image)
+def overlay(gif_path, user_id, overlay_type, resize_factor, bot):
+    gif = gifpy.GIF(image_files=[gif_path])
+    frames = gif.convert_frames()
+    overlay_files = [name for name in os.listdir() if name.startswith(f'{overlay_type}_')]
+    if not overlay_files:
+        return
+    random_overlay = random.choice(overlay_files)
+    overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
+    original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
 
-    for (x, y, w, h) in heads:
-        overlay_files = [name for name in os.listdir() if name.startswith(f'{overlay_type}_')]
-        if not overlay_files:
-            continue
-        random_overlay = random.choice(overlay_files)
-        overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
-        original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
-
-        new_width = int(RESIZE_FACTOR * w)
-        new_height = int(new_width / original_aspect_ratio)
-
-        center_x = x + w // 2
-        center_y = y + h // 2
-
-        overlay_x = int(center_x - 0.5 * RESIZE_FACTOR * w) - int(0.1 * RESIZE_FACTOR * w)
-        overlay_y = int(center_y - 0.5 * RESIZE_FACTOR * h) - int(0.1 * RESIZE_FACTOR * w)
-
-        overlay_x = max(0, overlay_x)
-        overlay_y = max(0, overlay_y)
-
-        overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
-
+    for i, frame in enumerate(frames):
+        overlay_image_resized = cv2.resize(overlay_image, (int(resize_factor * frame.shape[1]), int(resize_factor * frame.shape[0])), interpolation=cv2.INTER_AREA)
+        overlay_x = int(center_x - 0.5 * resize_factor * frame.shape[1]) - int(0.1 * resize_factor * frame.shape[1])
+        overlay_y = int(center_y - 0.5 * resize_factor * frame.shape[0]) - int(0.1 * resize_factor * frame.shape[0])
         roi_start_x = overlay_x
         roi_start_y = overlay_y
-        roi_end_x = min(image.shape[1], overlay_x + new_width)
-        roi_end_y = min(image.shape[0], overlay_y + new_height)
-
-        try:
-            overlay_part = overlay_image_resized[:roi_end_y - roi_start_y, :roi_end_x - roi_start_x]
-            alpha_mask = overlay_part[:, :, 3] / 255.0
-            for c in range(3):
-                image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, c] = (
-                    alpha_mask * overlay_part[:, :, c] +
-                    (1 - alpha_mask) * image[roi_start_y:roi_end_y, roi_start_x:roi_end_x, c]
-                )
-        except ValueError as e:
-            print(f"Error blending overlay: {e}")
-            continue
-    return image
+        roi_end_x = min(frame.shape[1], overlay_x + overlay_image_resized.shape[1])
+        roi_end_y = min(frame.shape[0], overlay_y + overlay_image_resized.shape[0])
+        overlay_part = overlay_image_resized[:roi_end_y - roi_start_y, :roi_end_x - roi_start_x]
+        alpha_mask = overlay_part[:, :, 3] / 255.0
+        for c in range(3):
+            frame[roi_start_y:roi_end_y, roi_start_x:roi_end_x, c] = (
+                alpha_mask * overlay_part[:, :, c] +
+                (1 - alpha_mask) * frame[roi_start_y:roi_end_y, roi_start_x:roi_end_x, c]
+            )
+        frames[i] = frame
+    processed_path = f"processed/{user_id}_{overlay_type}.gif"
+    gif.write_processed_frames(frames, processed_path)
+    return processed_path
 
 def process_image(image, overlay_type=None):
     faces = detect_heads(image)
@@ -95,11 +89,11 @@ def process_video(video_path, session_id, user_id, overlay_type=None):
     processed_clip.write_videofile(processed_video_path, codec='libx264')
     return processed_video_path
 
-def process_gif(gif_path, session_id, user_id, overlay_type=None):
+def process_gif(gif_path, session_id, user_id, bot):
     frames = imageio.mimread(gif_path)
-    processed_frames = [process_image(frame, overlay_type) for frame in frames]
-    processed_gif_path = f"processed/{user_id}_{session_id}.gif"
-    imageio.mimsave(processed_gif_path, processed_frames, duration=0.1)
+    processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
+    processed_gif_path = f"processed/{user_id}_{session_id}_pixelated.gif"
+    imageio.mimsave(processed_gif_path, processed_frames)
     return processed_gif_path
 
 def handle_photo(update: Update, context: CallbackContext) -> None:
