@@ -6,3 +6,4 @@ imageio
 imageio-ffmpeg
 python-dotenv
 moviepy
+gifpy
