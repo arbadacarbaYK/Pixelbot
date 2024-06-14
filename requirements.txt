@@ -3,7 +3,6 @@ python-telegram-bot==13.8
 mtcnn==0.1.1
 tensorflow==2.13.1
 imageio==2.34.1
-imageio-ffmpeg==0.5.1
-python-dotenv==1.0.1
 moviepy==1.0.3
-giflib==0.0.4
+python-dotenv==1.0.1
+Pillow>=8.4.0
