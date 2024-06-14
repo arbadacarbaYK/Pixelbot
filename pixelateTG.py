@@ -25,8 +25,8 @@ def start(update: Update, context: CallbackContext) -> None:
     """Handles the /start command to welcome the user. Applicable for both DMs and groups."""
     update.message.reply_text('Send me a picture, GIF, or MP4 video, and I will process faces in it!')
 
-def detect_heads(gif_path):
-    gif = gifpy.GIF(image_files=[gif_path])
+ef detect_heads(gif_path):
+    gif = giflib.GIF(image_files=[gif_path])
     frames = gif.convert_frames()
     faces = []
     for frame in frames:
@@ -39,7 +39,7 @@ def detect_heads(gif_path):
     return faces
 
 def overlay(gif_path, user_id, overlay_type, resize_factor, bot):
-    gif = gifpy.GIF(image_files=[gif_path])
+    gif = giflib.GIF(image_files=[gif_path])
     frames = gif.convert_frames()
     overlay_files = [name for name in os.listdir() if name.startswith(f'{overlay_type}_')]
     if not overlay_files:
@@ -93,7 +93,7 @@ def process_gif(gif_path, session_id, user_id, bot):
     frames = imageio.mimread(gif_path)
     processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
     processed_gif_path = f"processed/{user_id}_{session_id}_pixelated.gif"
-    imageio.mimsave(processed_gif_path, processed_frames)
+    giflib.GIF.write_processed_frames(frames, processed_gif_path)
     return processed_gif_path
 
 def handle_photo(update: Update, context: CallbackContext) -> None:
