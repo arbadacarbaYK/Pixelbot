@@ -87,7 +87,7 @@ def process_image(image, overlay_type=None):
         image = overlay(image, overlay_type)
     return image
 
-ef process_video(video_path, session_id, user_id, overlay_type=None):
+def process_video(video_path, session_id, user_id, overlay_type=None):
     clip = mp.VideoFileClip(video_path)
     frames = [frame for frame in clip.iter_frames()]
     processed_frames = [process_image(frame, overlay_type) for frame in frames]
@@ -169,22 +169,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
         pixelate_faces(update, context)
     else:
         update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
-
-
-Venice
-
-5.83 sec
-
-Here is the updated code from def pixelate_command onwards:
-
-python
-
-    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
-        context.args = ['pixelate']
-        pixelate_faces(update, context)
-    else:
-        update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
-
+        
 def button_callback(update: Update, context: CallbackContext) -> None:
     """Handles button presses for selecting overlays or pixelation. Applicable for both DMs and groups."""
     query = update.callback_query
