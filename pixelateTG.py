@@ -3,7 +3,7 @@ from dotenv import load_dotenv  # Import the load_dotenv function from python-do
 import cv2
 import random
 import imageio
-import gifpy
+import PIL
 from mtcnn.mtcnn import MTCNN
 import moviepy.editor as mp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -26,11 +26,14 @@ def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture, GIF, or MP4 video, and I will process faces in it!')
 
 def detect_heads(gif_path):
-    gif = giflib.GIF(image_files=[gif_path])
-    frames = gif.convert_frames()
+    frames = []
+    for i in range(1, 101):  # Assuming the GIF has 100 frames or less
+        frame_path = f"frames/frame_{i:04d}.gif"
+        frame = PIL.Image.open(frame_path).convert('RGB')
+        frames.append(frame)
     faces = []
     for frame in frames:
-        image = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        image = cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
         detector = MTCNN()
         face_boxes = detector.detect_faces(image)
         for face in face_boxes:
@@ -39,13 +42,16 @@ def detect_heads(gif_path):
     return faces
 
 def overlay(gif_path, user_id, overlay_type, resize_factor, bot):
-    gif = giflib.GIF(image_files=[gif_path])
-    frames = gif.convert_frames()
+    frames = []
+    for i in range(1, 101):  # Assuming the GIF has 100 frames or less
+        frame_path = f"frames/frame_{i:04d}.gif"
+        frame = PIL.Image.open(frame_path).convert('RGB')
+        frames.append(frame)
     overlay_files = [name for name in os.listdir() if name.startswith(f'{overlay_type}_')]
     if not overlay_files:
         return
     random_overlay = random.choice(overlay_files)
-    overlay_image = cv2.imread(random_overlay, cv2.IMREAD_UNCHANGED)
+    overlay_image = cv2.cvtColor(np.array(PIL.Image.open(random_overlay).convert('RGB')), cv2.COLOR_RGB2BGR)
     original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
 
     for i, frame in enumerate(frames):
@@ -65,7 +71,8 @@ def overlay(gif_path, user_id, overlay_type, resize_factor, bot):
             )
         frames[i] = frame
     processed_path = f"processed/{user_id}_{overlay_type}.gif"
-    gif.write_processed_frames(frames, processed_path)
+    frames_as_np = [np.array(frame) for frame in frames]
+    cv2.imwrite(processed_path, cv2.merge([frame[:,:,0] for frame in frames_as_np]), [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
 
 def process_image(image, overlay_type=None):
@@ -80,7 +87,7 @@ def process_image(image, overlay_type=None):
         image = overlay(image, overlay_type)
     return image
 
-def process_video(video_path, session_id, user_id, overlay_type=None):
+ef process_video(video_path, session_id, user_id, overlay_type=None):
     clip = mp.VideoFileClip(video_path)
     frames = [frame for frame in clip.iter_frames()]
     processed_frames = [process_image(frame, overlay_type) for frame in frames]
@@ -93,7 +100,7 @@ def process_gif(gif_path, session_id, user_id, bot):
     frames = imageio.mimread(gif_path)
     processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
     processed_gif_path = f"processed/{user_id}_{session_id}_pixelated.gif"
-    giflib.GIF.write_processed_frames(frames, processed_gif_path)
+    imageio.mimsave(processed_gif_path, processed_frames)
     return processed_gif_path
 
 def handle_photo(update: Update, context: CallbackContext) -> None:
@@ -154,6 +161,7 @@ def handle_gif_or_video(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('Please send either a GIF or a video.')
 
+
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
     if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
@@ -162,6 +170,20 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
 
+
+Venice
+
+5.83 sec
+
+Here is the updated code from def pixelate_command onwards:
+
+python
+
+    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
+        context.args = ['pixelate']
+        pixelate_faces(update, context)
+    else:
+        update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     """Handles button presses for selecting overlays or pixelation. Applicable for both DMs and groups."""
@@ -176,7 +198,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
     photo_path = user_data[session_id]['photo_path']
     user_id = user_data[session_id]['user_id']
-    
+
     if 'pixelate' in query.data:
         processed_path = process_image(cv2.imread(photo_path))
     elif 'liotta_overlay' in query.data:
@@ -198,6 +220,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     processed_file_path = f"processed/{user_id}_{session_id}_processed.jpg"
     cv2.imwrite(processed_file_path, processed_path, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_file_path, 'rb'))
+
 
 def main() -> None:
     updater = Updater(TOKEN)
