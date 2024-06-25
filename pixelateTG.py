@@ -1,4 +1,5 @@
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 from dotenv import load_dotenv  # Import the load_dotenv function from python-dotenv
 import cv2
 import random
