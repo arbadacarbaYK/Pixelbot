@@ -40,8 +40,6 @@ def process_image(image, overlay_type=None):
         pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
         pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
         image[y:y+h, x:x+w] = pixelated_roi
-    if overlay_type:
-        image = overlay(image, overlay_type)
     return image
 
 def process_gif(gif_path, session_id, user_id):
@@ -113,10 +111,10 @@ def handle_gif_or_video(update: Update, context: CallbackContext) -> None:
             file.download(media_path)
 
             if mime_type == 'image/gif':
-                processed_gif_path = process_gif(media_path, session_id, user_data['user_id'])
+                processed_gif_path = process_gif(media_path, session_id, user_data[update.message.from_user.id])
                 context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
             elif mime_type == 'video/mp4':
-                processed_video_path = process_video(media_path, session_id, user_data['user_id'])
+                processed_video_path = process_video(media_path, session_id, user_data[update.message.from_user.id])
                 context.bot.send_video(chat_id=update.message.chat_id, video=open(processed_video_path, 'rb'))
     else:
         update.message.reply_text('Please send either a GIF or a video.')
@@ -124,8 +122,13 @@ def handle_gif_or_video(update: Update, context: CallbackContext) -> None:
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
     if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
-        context.args = ['pixelate']
-        pixelate_faces(update, context)
+        file = update.message.reply_to_message.photo or update.message.reply_to_message.document
+        if file:
+            mime_type = file.mime_type
+            if mime_type.startswith('image/'):
+                handle_photo(update, context)
+            elif mime_type == 'image/gif' or mime_type == 'video/mp4':
+                handle_gif_or_video(update, context)
     else:
         update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
 
