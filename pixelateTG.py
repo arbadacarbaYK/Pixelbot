@@ -121,13 +121,12 @@ def handle_gif_or_video(update: Update, context: CallbackContext) -> None:
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
-    if update.message.reply_to_message and (update.message.reply_to_message.photo or update.message.reply_to_message.document):
-        file = update.message.reply_to_message.photo or update.message.reply_to_message.document
-        if file:
-            mime_type = file.mime_type
-            if mime_type.startswith('image/'):
-                handle_photo(update, context)
-            elif mime_type == 'image/gif' or mime_type == 'video/mp4':
+    if update.message.reply_to_message:
+        if update.message.reply_to_message.photo:
+            handle_photo(update, context)
+        elif update.message.reply_to_message.document:
+            mime_type = update.message.reply_to_message.document.mime_type
+            if mime_type in ['image/gif', 'video/mp4']:
                 handle_gif_or_video(update, context)
     else:
         update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
