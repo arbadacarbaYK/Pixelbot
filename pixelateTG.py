@@ -1,15 +1,15 @@
 import os
-from dotenv import load_dotenv  # Import the load_dotenv function from python-dotenv
+from dotenv import load_dotenv
 import cv2
 import random
 import imageio
-import PIL
+import numpy as np
+from PIL import Image
 from mtcnn.mtcnn import MTCNN
 import moviepy.editor as mp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
-from concurrent.futures import ThreadPoolExecutor, wait
-from mtcnn.mtcnn import MTCNN
+from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 # Load environment variables from .env file
@@ -25,83 +25,41 @@ def start(update: Update, context: CallbackContext) -> None:
     """Handles the /start command to welcome the user. Applicable for both DMs and groups."""
     update.message.reply_text('Send me a picture, GIF, or MP4 video, and I will process faces in it!')
 
-def detect_heads(gif_path):
-    frames = []
-    for i in range(1, 101):  # Assuming the GIF has 100 frames or less
-        frame_path = f"frames/frame_{i:04d}.gif"
-        frame = PIL.Image.open(frame_path).convert('RGB')
-        frames.append(frame)
-    faces = []
-    for frame in frames:
-        image = cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
-        detector = MTCNN()
-        face_boxes = detector.detect_faces(image)
-        for face in face_boxes:
-            face['box'] = [int(face['box'][0] * RESIZE_FACTOR), int(face['box'][1] * RESIZE_FACTOR), int(face['box'][2] * RESIZE_FACTOR), int(face['box'][3] * RESIZE_FACTOR)]
-            faces.append(face)
+def detect_heads(image):
+    detector = MTCNN()
+    faces = detector.detect_faces(image)
     return faces
-
-def overlay(gif_path, user_id, overlay_type, resize_factor, bot):
-    frames = []
-    for i in range(1, 101):  # Assuming the GIF has 100 frames or less
-        frame_path = f"frames/frame_{i:04d}.gif"
-        frame = PIL.Image.open(frame_path).convert('RGB')
-        frames.append(frame)
-    overlay_files = [name for name in os.listdir() if name.startswith(f'{overlay_type}_')]
-    if not overlay_files:
-        return
-    random_overlay = random.choice(overlay_files)
-    overlay_image = cv2.cvtColor(np.array(PIL.Image.open(random_overlay).convert('RGB')), cv2.COLOR_RGB2BGR)
-    original_aspect_ratio = overlay_image.shape[1] / overlay_image.shape[0]
-
-    for i, frame in enumerate(frames):
-        overlay_image_resized = cv2.resize(overlay_image, (int(resize_factor * frame.shape[1]), int(resize_factor * frame.shape[0])), interpolation=cv2.INTER_AREA)
-        overlay_x = int(center_x - 0.5 * resize_factor * frame.shape[1]) - int(0.1 * resize_factor * frame.shape[1])
-        overlay_y = int(center_y - 0.5 * resize_factor * frame.shape[0]) - int(0.1 * resize_factor * frame.shape[0])
-        roi_start_x = overlay_x
-        roi_start_y = overlay_y
-        roi_end_x = min(frame.shape[1], overlay_x + overlay_image_resized.shape[1])
-        roi_end_y = min(frame.shape[0], overlay_y + overlay_image_resized.shape[0])
-        overlay_part = overlay_image_resized[:roi_end_y - roi_start_y, :roi_end_x - roi_start_x]
-        alpha_mask = overlay_part[:, :, 3] / 255.0
-        for c in range(3):
-            frame[roi_start_y:roi_end_y, roi_start_x:roi_end_x, c] = (
-                alpha_mask * overlay_part[:, :, c] +
-                (1 - alpha_mask) * frame[roi_start_y:roi_end_y, roi_start_x:roi_end_x, c]
-            )
-        frames[i] = frame
-    processed_path = f"processed/{user_id}_{overlay_type}.gif"
-    frames_as_np = [np.array(frame) for frame in frames]
-    cv2.imwrite(processed_path, cv2.merge([frame[:,:,0] for frame in frames_as_np]), [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-    return processed_path
 
 def process_image(image, overlay_type=None):
     faces = detect_heads(image)
-    for (x, y, w, h) in faces:
+    for face in faces:
+        x, y, w, h = face['box']
         roi = image[y:y+h, x:x+w]
         pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
         pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
         pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
         image[y:y+h, x:x+w] = pixelated_roi
-    if overlay_type:
-        image = overlay(image, overlay_type)
     return image
 
-def process_video(video_path, session_id, user_id, overlay_type=None):
+def process_gif(gif_path, session_id, user_id):
+    frames = imageio.mimread(gif_path)
+    processed_frames = []
+    for frame in frames:
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        processed_frame = process_image(frame_rgb)
+        processed_frames.append(cv2.cvtColor(processed_frame, cv2.COLOR_RGB2BGR))
+    processed_gif_path = f"processed/{user_id}_{session_id}_pixelated.gif"
+    imageio.mimsave(processed_gif_path, processed_frames)
+    return processed_gif_path
+
+def process_video(video_path, session_id, user_id):
     clip = mp.VideoFileClip(video_path)
     frames = [frame for frame in clip.iter_frames()]
-    processed_frames = [process_image(frame, overlay_type) for frame in frames]
+    processed_frames = [process_image(frame) for frame in frames]
     processed_clip = mp.ImageSequenceClip(processed_frames, fps=clip.fps)
     processed_video_path = f"processed/{user_id}_{session_id}.mp4"
     processed_clip.write_videofile(processed_video_path, codec='libx264')
     return processed_video_path
-
-def process_gif(gif_path, session_id, user_id, bot):
-    frames = imageio.mimread(gif_path)
-    processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
-    processed_gif_path = f"processed/{user_id}_{session_id}_pixelated.gif"
-    imageio.mimsave(processed_gif_path, processed_frames)
-    return processed_gif_path
 
 def handle_photo(update: Update, context: CallbackContext) -> None:
     """Handles photo messages for both DMs and groups."""
@@ -152,15 +110,13 @@ def handle_gif_or_video(update: Update, context: CallbackContext) -> None:
             file.download(media_path)
 
             if mime_type == 'image/gif':
-                processed_gif_path = process_gif(media_path, session_id, str(uuid4()), context.bot)
+                processed_gif_path = process_gif(media_path, session_id, user_data['user_id'])
                 context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
             elif mime_type == 'video/mp4':
-                processed_video_path = process_video(media_path, session_id, str(uuid4()), context.bot)
+                processed_video_path = process_video(media_path, session_id, user_data['user_id'])
                 context.bot.send_video(chat_id=update.message.chat_id, video=open(processed_video_path, 'rb'))
-
     else:
         update.message.reply_text('Please send either a GIF or a video.')
-
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     """Handles the /pixel command to pixelate faces in a photo, GIF, or video. Applicable for both DMs and groups."""
@@ -169,7 +125,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
         pixelate_faces(update, context)
     else:
         update.message.reply_text('Please reply to a photo, GIF, or video to pixelate faces.')
-        
+
 def button_callback(update: Update, context: CallbackContext) -> None:
     """Handles button presses for selecting overlays or pixelation. Applicable for both DMs and groups."""
     query = update.callback_query
@@ -205,7 +161,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     processed_file_path = f"processed/{user_id}_{session_id}_processed.jpg"
     cv2.imwrite(processed_file_path, processed_path, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_file_path, 'rb'))
-
 
 def main() -> None:
     updater = Updater(TOKEN)
