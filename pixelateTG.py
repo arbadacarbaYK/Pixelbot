@@ -1,4 +1,5 @@
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow logging (1: INFO, 2: WARNING, 3: ERROR)
 from dotenv import load_dotenv
 import cv2
 import random
@@ -39,6 +40,8 @@ def process_image(image, overlay_type=None):
         pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
         pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
         image[y:y+h, x:x+w] = pixelated_roi
+    if overlay_type:
+        image = overlay(image, overlay_type)
     return image
 
 def process_gif(gif_path, session_id, user_id):
