@@ -30,9 +30,14 @@ def detect_heads(image):
     head_boxes.sort(key=lambda box: box[1])
     return head_boxes
 
+see no reason why cats should be layered different. if it then still doesnt overlay cats properly we can pull out an older overlay version , e.g. this ´
+
 def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     image = cv2.imread(photo_path)
     heads = detect_heads(image)
+
+    # Sort faces based on y-coordinate (top to bottom)
+    heads.sort(key=lambda box: box[1])
 
     for (x, y, w, h) in heads:
         overlay_files = [name for name in os.listdir() if name.startswith(f'{overlay_type}_')]
@@ -83,7 +88,6 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     processed_path = f"processed/{user_id}_{overlay_type}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
-
 
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
