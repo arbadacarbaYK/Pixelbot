@@ -5,3 +5,4 @@ tensorflow
 imageio
 imageio-ffmpeg
 python-dotenv
+requests
