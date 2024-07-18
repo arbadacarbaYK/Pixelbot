@@ -1,5 +1,4 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 from dotenv import load_dotenv  # Import the load_dotenv function from python-dotenv
 import cv2
 import random
@@ -23,13 +22,9 @@ def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture or a GIF, and I will pixelate faces in it!')
 
 def detect_heads(image):
-    detector = MTCNN()
-    faces = detector.detect_faces(image)
-    # Sort faces by size (area) in descending order
-    faces.sort(key=lambda x: x['box'][2] * x['box'][3], reverse=True)
+    mtcnn = MTCNN()
+    faces = mtcnn.detect_faces(image)
     head_boxes = [(face['box'][0], face['box'][1], int(RESIZE_FACTOR * face['box'][2]), int(RESIZE_FACTOR * face['box'][3])) for face in faces]
-    # Sort faces based on y-coordinate (top to bottom)
-    head_boxes.sort(key=lambda box: box[1])
     return head_boxes
 
 def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
@@ -53,16 +48,12 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         center_y = y + h // 2
 
         # Overlay position adjusted for better centering
-        overlay_x = center_x - (new_width // 2)
-        overlay_y = center_y - (new_height // 2)
+        overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.1 * resize_factor * w)
+        overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
 
         # Clamp values to ensure they are within the image boundaries
         overlay_x = max(0, overlay_x)
         overlay_y = max(0, overlay_y)
-        if overlay_x + new_width > image.shape[1]:
-            new_width = image.shape[1] - overlay_x
-        if overlay_y + new_height > image.shape[0]:
-            new_height = image.shape[0] - overlay_y
 
         # Resize the overlay image
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
@@ -89,6 +80,7 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     processed_path = f"processed/{user_id}_{overlay_type}.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
+
 
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
@@ -224,6 +216,7 @@ def process_image(photo_path, user_id, session_id, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
 
+
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
@@ -236,17 +229,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         photo_path = data.get('photo_path')
         user_or_chat_id = data.get('user_id') or data.get('chat_id')
 
-        # Delete files in both 'downloads' and 'processed' directories
         if query.data.startswith('cancel'):
-            # Delete the corresponding processed file
-            processed_file_path = f"processed/{user_or_chat_id}_{session_id}_pixelated.jpg"
-            if os.path.exists(processed_file_path):
-                os.remove(processed_file_path)
-
-            # Delete the original photo/gif file from 'downloads' directory
-            if os.path.exists(photo_path):
-                os.remove(photo_path)
-
             if session_id in user_data:
                 del user_data[session_id]
             if session_id in chat_data:
@@ -257,7 +240,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         processed_path = None
 
         if query.data.startswith('pixelate'):
-            processed_path = process_image(photo_path, user_or_chat_id, session_id, context.bot)
+            processed_path = process_image(photo_path, user_or_chat_id, query.id, context.bot)
         elif query.data.startswith('liotta'):
             processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('cats_overlay'):
@@ -273,7 +256,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
 
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
-
 
 def main() -> None:
     updater = Updater(TOKEN)
