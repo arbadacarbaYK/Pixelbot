@@ -1,4 +1,5 @@
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 from dotenv import load_dotenv  # Import the load_dotenv function from python-dotenv
 import cv2
 import random
@@ -8,8 +9,6 @@ from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQuery
 from concurrent.futures import ThreadPoolExecutor, wait
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
-from datetime import datetime, timedelta
-import schedule
 
 # Load environment variables from .env file
 load_dotenv()
@@ -19,15 +18,18 @@ MAX_THREADS = 15
 PIXELATION_FACTOR = 0.04
 RESIZE_FACTOR = 1.5  # Common resize factor
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
-DELETE_TIME_HOURS = int(os.getenv('DELETE_TIME_HOURS', 24))  # Get the time in hours from the environment variable
 
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text('Send me a picture or a GIF, and I will pixelate faces in it!')
 
 def detect_heads(image):
-    mtcnn = MTCNN()
-    faces = mtcnn.detect_faces(image)
+    detector = MTCNN()
+    faces = detector.detect_faces(image)
+    # Sort faces by size (area) in descending order
+    faces.sort(key=lambda x: x['box'][2] * x['box'][3], reverse=True)
     head_boxes = [(face['box'][0], face['box'][1], int(RESIZE_FACTOR * face['box'][2]), int(RESIZE_FACTOR * face['box'][3])) for face in faces]
+    # Sort faces based on y-coordinate (top to bottom)
+    head_boxes.sort(key=lambda box: box[1])
     return head_boxes
 
 def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
@@ -51,12 +53,16 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
         center_y = y + h // 2
 
         # Overlay position adjusted for better centering
-        overlay_x = int(center_x - 0.5 * resize_factor * w) - int(0.1 * resize_factor * w)
-        overlay_y = int(center_y - 0.5 * resize_factor * h) - int(0.1 * resize_factor * w)
+        overlay_x = center_x - (new_width // 2)
+        overlay_y = center_y - (new_height // 2)
 
         # Clamp values to ensure they are within the image boundaries
         overlay_x = max(0, overlay_x)
         overlay_y = max(0, overlay_y)
+        if overlay_x + new_width > image.shape[1]:
+            new_width = image.shape[1] - overlay_x
+        if overlay_y + new_height > image.shape[0]:
+            new_height = image.shape[0] - overlay_y
 
         # Resize the overlay image
         overlay_image_resized = cv2.resize(overlay_image, (new_width, new_height), interpolation=cv2.INTER_AREA)
@@ -134,7 +140,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
             [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
              InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
+             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')]
         ]
         
         # Check if it's a private chat, if yes, include the "⚔️ Pixel" button
@@ -142,7 +148,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
             keyboard.append([InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')])
 
         keyboard.append([InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')])
-
+        
         reply_markup = InlineKeyboardMarkup(keyboard)
         user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
@@ -161,6 +167,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
 
     else:
         update.message.reply_text('Please send either a photo or a GIF.')
+
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
@@ -188,7 +195,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
              InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
             [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],
+             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         chat_data[session_id] = {'photo_path': photo_path, 'chat_id': update.message.chat.id}
@@ -229,7 +236,17 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         photo_path = data.get('photo_path')
         user_or_chat_id = data.get('user_id') or data.get('chat_id')
 
+        # Delete files in both 'downloads' and 'processed' directories
         if query.data.startswith('cancel'):
+            # Delete the corresponding processed file
+            processed_file_path = f"processed/{user_or_chat_id}_{session_id}_pixelated.jpg"
+            if os.path.exists(processed_file_path):
+                os.remove(processed_file_path)
+
+            # Delete the original photo/gif file from 'downloads' directory
+            if os.path.exists(photo_path):
+                os.remove(photo_path)
+
             if session_id in user_data:
                 del user_data[session_id]
             if session_id in chat_data:
@@ -240,7 +257,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         processed_path = None
 
         if query.data.startswith('pixelate'):
-            processed_path = process_image(photo_path, user_or_chat_id, query.id, context.bot)
+            processed_path = process_image(photo_path, user_or_chat_id, session_id, context.bot)
         elif query.data.startswith('liotta'):
             processed_path = liotta_overlay(photo_path, user_or_chat_id, context.bot)
         elif query.data.startswith('cats_overlay'):
@@ -257,17 +274,6 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         if processed_path:
             context.bot.send_photo(chat_id=query.message.chat_id, photo=open(processed_path, 'rb'))
 
-def delete_old_files(folder):
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        creation_time = datetime.fromtimestamp(os.path.getctime(file_path))
-        if datetime.now() - creation_time > timedelta(hours=DELETE_TIME_HOURS):
-            os.remove(file_path)
-
-def delete_old_files_in_folders():
-    folders_to_clean = ['downloads', 'processed']
-    for folder in folders_to_clean:
-        delete_old_files(folder)
 
 def main() -> None:
     updater = Updater(TOKEN)
@@ -279,15 +285,7 @@ def main() -> None:
     dispatcher.add_handler(MessageHandler(Filters.photo & Filters.private, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
 
-    # Schedule file cleanup job to run every day at 3 AM
-    schedule.every().day.at("03:00").do(delete_old_files_in_folders)
-
     updater.start_polling()
-
-    # Keep the program running to execute scheduled tasks
-    while True:
-        schedule.run_pending()
-
     updater.idle()
 
 if __name__ == "__main__":
