@@ -61,15 +61,11 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
 
     return processed_path
 
-# looking for one straight file
-
 def liotta_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
 
 def skull_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'skullofsatoshi', RESIZE_FACTOR, bot)
-
-# looking for a random file out of a similar naming
 
 def pepe_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'pepe', RESIZE_FACTOR, bot)
@@ -93,7 +89,7 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
     photo_path = f"downloads/{file_name}"
     file.download(photo_path)
 
-# Check if any faces are detected
+    # Check if any faces are detected
     image = cv2.imread(photo_path)
     mtcnn = MTCNN()
     faces = mtcnn.detect_faces(image)
@@ -123,7 +119,6 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         update.message.delete()
     else:  # Group chat
         update.message.reply_text('Reply to an image with /pixel to pixelate faces.')
-
 
 def pixel_command(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())  # Generate a unique session ID
@@ -156,7 +151,6 @@ def pixel_command(update: Update, context: CallbackContext) -> None:
     context.user_data[session_id]['photo_path'] = photo_path
     context.user_data[session_id]['user_id'] = update.message.from_user.id
 
-
 def process_image(photo_path, user_id, file_id, bot):
     image = cv2.imread(photo_path)
     faces = detect_heads(image)
@@ -180,7 +174,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     session_id = query.data.split('_')[-1]
     user_data = context.user_data.get(session_id)
 
-if user_data and user_data['state'] == 'waiting_for_photo':
+    if user_data and user_data['state'] == 'waiting_for_photo':
         photo_path = user_data.get('photo_path')
         user_id = user_data.get('user_id')
 
@@ -214,7 +208,7 @@ if user_data and user_data['state'] == 'waiting_for_photo':
 def main() -> None:
     updater = Updater(TOKEN)
     dispatcher = updater.dispatcher
-    dispatcher.add_handler(CommandHandler("pixel", lambda update, context: pixel_command(update, context, dispatcher)))
+    dispatcher.add_handler(CommandHandler("pixel", pixel_command))
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(MessageHandler(Filters.photo & ~Filters.command, pixelate_faces))
     dispatcher.add_handler(CallbackQueryHandler(button_callback))
@@ -222,5 +216,5 @@ def main() -> None:
     updater.start_polling()
     updater.idle()
 
-if name == 'main':
+if __name__ == '__main__':
     main()
