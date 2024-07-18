@@ -84,7 +84,6 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
 
-
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
@@ -135,35 +134,33 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
             [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
              InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')]
+             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
         ]
         
         # Check if it's a private chat, if yes, include the "⚔️ Pixel" button
-if update.message.chat.type == 'private':
-    keyboard.append([InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')])
+        if update.message.chat.type == 'private':
+            keyboard.append([InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')])
 
-keyboard.append([InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')])
+        keyboard.append([InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')])
 
-reply_markup = InlineKeyboardMarkup(keyboard)
-user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        user_data[session_id] = {'photo_path': photo_path, 'user_id': update.message.from_user.id}
 
-update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
-update.message.delete()
+        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+        update.message.delete()
 
-elif update.message.document and update.message.document.mime_type == 'image/gif':
-    file_id = update.message.document.file_id
-    file = context.bot.get_file(file_id)
-    file_name = file.file_path.split('/')[-1]
-    gif_path = f"downloads/{file_name}"
-    file.download(gif_path)
+    elif update.message.document and update.message.document.mime_type == 'image/gif':
+        file_id = update.message.document.file_id
+        file = context.bot.get_file(file_id)
+        file_name = file.file_path.split('/')[-1]
+        gif_path = f"downloads/{file_name}"
+        file.download(gif_path)
 
-    processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-    context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
+        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
+        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
 
-else:
-    update.message.reply_text('Please send either a photo or a GIF.')
-
-
+    else:
+        update.message.reply_text('Please send either a photo or a GIF.')
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
@@ -191,7 +188,7 @@ def pixelate_command(update: Update, context: CallbackContext) -> None:
              InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
              InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
             [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
+             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         chat_data[session_id] = {'photo_path': photo_path, 'chat_id': update.message.chat.id}
@@ -219,7 +216,6 @@ def process_image(photo_path, user_id, session_id, bot):
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -267,7 +263,6 @@ def delete_old_files(folder):
         creation_time = datetime.fromtimestamp(os.path.getctime(file_path))
         if datetime.now() - creation_time > timedelta(hours=DELETE_TIME_HOURS):
             os.remove(file_path)
-
 
 def delete_old_files_in_folders():
     folders_to_clean = ['downloads', 'processed']
