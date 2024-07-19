@@ -2,10 +2,9 @@ import os
 from dotenv import load_dotenv  # Import the load_dotenv function from python-dotenv
 import cv2
 import random
-import imageio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
 
@@ -19,7 +18,7 @@ RESIZE_FACTOR = 1.5  # Common resize factor
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
 def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Send me a picture or a GIF, and I will pixelate faces in it!')
+    update.message.reply_text('Send me a picture, and I will pixelate faces in it!')
 
 def detect_heads(image):
     mtcnn = MTCNN()
@@ -81,7 +80,6 @@ def overlay(photo_path, user_id, overlay_type, resize_factor, bot):
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
 
-
 # Overlay functions
 def liotta_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'liotta', RESIZE_FACTOR, bot)
@@ -100,13 +98,6 @@ def cats_overlay(photo_path, user_id, bot):
 
 def clowns_overlay(photo_path, user_id, bot):
     return overlay(photo_path, user_id, 'clown', RESIZE_FACTOR, bot)
-
-def process_gif(gif_path, session_id, user_id, bot):
-    frames = imageio.mimread(gif_path)
-    processed_frames = [process_image(frame, user_id, session_id, bot) for frame in frames]
-    processed_gif_path = f"processed/{user_id}_{session_id}.gif"
-    imageio.mimsave(processed_gif_path, processed_frames)
-    return processed_gif_path
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
     session_id = str(uuid4())
@@ -147,19 +138,8 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
         update.message.delete()
 
-    elif update.message.document and update.message.document.mime_type == 'image/gif':
-        file_id = update.message.document.file_id
-        file = context.bot.get_file(file_id)
-        file_name = file.file_path.split('/')[-1]
-        gif_path = f"downloads/{file_name}"
-        file.download(gif_path)
-
-        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
-        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
-
     else:
-        update.message.reply_text('Please send either a photo or a GIF.')
-
+        update.message.reply_text('Please send a photo.')
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
     if update.message.reply_to_message and update.message.reply_to_message.photo:
@@ -215,7 +195,6 @@ def process_image(photo_path, user_id, session_id, bot):
     processed_path = f"processed/{user_id}_{session_id}_pixelated.jpg"
     cv2.imwrite(processed_path, image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     return processed_path
-
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
