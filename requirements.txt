@@ -1,8 +1,5 @@
-opencv-python
-python-telegram-bot==13.8
-mtcnn
-tensorflow
-imageio
-imageio-ffmpeg
 python-dotenv
-schedule
+python-telegram-bot
+mtcnn
+opencv-python-headless
+uuid
