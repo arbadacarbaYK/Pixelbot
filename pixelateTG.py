@@ -112,11 +112,21 @@ def process_gif(gif_path, session_id, user_id, bot):
     reader = imageio.get_reader(gif_path)
     processed_frames = []
     for frame in reader:
-        processed_frame = process_image(frame, user_id, session_id, bot)
+        image = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        faces = detect_heads(image)
+
+        for (x, y, w, h) in faces:
+            roi = image[y:y+h, x:x+w]
+            pixelation_size = max(1, int(PIXELATION_FACTOR * min(w, h)))
+            pixelated_roi = cv2.resize(roi, (pixelation_size, pixelation_size), interpolation=cv2.INTER_NEAREST)
+            pixelated_roi = cv2.resize(pixelated_roi, (w, h), interpolation=cv2.INTER_NEAREST)
+            image[y:y+h, x:x+w] = pixelated_roi
+
+        processed_frame = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         processed_frames.append(processed_frame)
-    
+
     processed_gif_path = f"processed/{user_id}_{session_id}.gif"
-    imageio.mimsave(processed_gif_path, processed_frames)
+    imageio.mimsave(processed_gif_path, processed_frames, format='GIF', duration=reader.get_meta_data()['duration'])
     return processed_gif_path
 
 def pixelate_faces(update: Update, context: CallbackContext) -> None:
@@ -171,39 +181,20 @@ def pixelate_faces(update: Update, context: CallbackContext) -> None:
         update.message.reply_text('Please send either a photo or a GIF.')
 
 def pixelate_command(update: Update, context: CallbackContext) -> None:
-    if update.message.reply_to_message and update.message.reply_to_message.photo:
+    if update.message.reply_to_message and update.message.reply_to_message.document and update.message.reply_to_message.document.mime_type == 'image/gif':
         session_id = str(uuid4())
         chat_data = context.chat_data
 
-        file_id = update.message.reply_to_message.photo[-1].file_id
+        file_id = update.message.reply_to_message.document.file_id
         file = context.bot.get_file(file_id)
         file_name = file.file_path.split('/')[-1]
-        photo_path = f"downloads/{file_name}"
-        file.download(photo_path)
+        gif_path = f"downloads/{file_name}"
+        file.download(gif_path)
 
-        image = cv2.imread(photo_path)
-        faces = detect_heads(image)
-
-        if not faces:
-            update.message.reply_text('No faces detected in the image.')
-            return
-
-        keyboard = [
-            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clowns_overlay_{session_id}'),
-             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_overlay_{session_id}'),
-             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_overlay_{session_id}')],
-            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cats_overlay_{session_id}'),
-             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_overlay_{session_id}'),
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_overlay_{session_id}')],
-            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}'),
-             InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        chat_data[session_id] = {'photo_path': photo_path, 'chat_id': update.message.chat.id}
-
-        update.message.reply_text('Press buttons until happy', reply_markup=reply_markup)
+        processed_gif_path = process_gif(gif_path, session_id, str(uuid4()), context.bot)
+        context.bot.send_animation(chat_id=update.message.chat_id, animation=open(processed_gif_path, 'rb'))
     else:
-        update.message.reply_text('This only works as a reply to a picture.')
+        update.message.reply_text('This only works as a reply to a GIF.')
 
 def process_image(photo_path, user_id, session_id, bot):
     image = cv2.imread(photo_path)
