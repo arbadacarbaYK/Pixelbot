@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Processor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Upload and Process Image</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="file" id="fileInput" accept="image/*">
+            <button type="submit">Upload</button>
+        </form>
+        <div id="overlayOptions" class="options">
+            <h2>Select Overlay</h2>
+            <button onclick="processImage('liotta')">Liotta</button>
+            <button onclick="processImage('skull')">Skull</button>
+            <button onclick="processImage('pepe')">Pepe</button>
+            <button onclick="processImage('chad')">Chad</button>
+            <button onclick="processImage('cat')">Cat</button>
+            <button onclick="processImage('clown')">Clown</button>
+        </div>
+        <div id="result" class="result">
+            <h2>Processed Image</h2>
+            <a id="downloadLink" href="#" download>Download Processed Image</a>
+        </div>
+    </div>
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            var formData = new FormData();
+            var fileInput = document.getElementById('fileInput');
+            formData.append('file', fileInput.files[0]);
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.filename) {
+                    document.getElementById('overlayOptions').style.display = 'block';
+                    window.uploadedFilename = data.filename;
+                } else {
+                    alert(data.error);
+                }
+            });
+        });
+
+        function processImage(overlayType) {
+            fetch('/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    filename: window.uploadedFilename,
+                    overlay_type: overlayType
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.processed_filename) {
+                    document.getElementById('result').style.display = 'block';
+                    document.getElementById('downloadLink').href = '/download/' + data.processed_filename;
+                } else {
+                    alert(data.error);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
