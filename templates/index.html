@@ -8,23 +8,23 @@
 </head>
 <body>
     <div class="container">
-        <h1>Upload and Process Image</h1>
+        <h1>Upload and Process Images</h1>
         <form id="uploadForm" enctype="multipart/form-data">
-            <input type="file" name="file" id="fileInput" accept="image/*">
+            <input type="file" name="files" id="fileInput" accept="image/*" multiple>
             <button type="submit">Upload</button>
         </form>
-        <div id="overlayOptions" class="options">
+        <div id="overlayOptions" class="options" style="display: none;">
             <h2>Select Overlay</h2>
-            <button onclick="processImage('liotta')">Liotta</button>
-            <button onclick="processImage('skull')">Skull</button>
-            <button onclick="processImage('pepe')">Pepe</button>
-            <button onclick="processImage('chad')">Chad</button>
-            <button onclick="processImage('cat')">Cat</button>
-            <button onclick="processImage('clown')">Clown</button>
+            <button onclick="processImages('liotta')">Liotta</button>
+            <button onclick="processImages('skull')">Skull</button>
+            <button onclick="processImages('pepe')">Pepe</button>
+            <button onclick="processImages('chad')">Chad</button>
+            <button onclick="processImages('cat')">Cat</button>
+            <button onclick="processImages('clown')">Clown</button>
         </div>
-        <div id="result" class="result">
-            <h2>Processed Image</h2>
-            <a id="downloadLink" href="#" download>Download Processed Image</a>
+        <div id="result" class="result" style="display: none;">
+            <h2>Processed Images</h2>
+            <div id="downloadLinks"></div>
         </div>
     </div>
     <script>
@@ -32,38 +32,49 @@
             event.preventDefault();
             var formData = new FormData();
             var fileInput = document.getElementById('fileInput');
-            formData.append('file', fileInput.files[0]);
+            for (var i = 0; i < fileInput.files.length; i++) {
+                formData.append('files', fileInput.files[i]);
+            }
             fetch('/upload', {
                 method: 'POST',
                 body: formData
             })
             .then(response => response.json())
             .then(data => {
-                if (data.filename) {
+                if (data.filenames) {
                     document.getElementById('overlayOptions').style.display = 'block';
-                    window.uploadedFilename = data.filename;
+                    window.uploadedFilenames = data.filenames;
                 } else {
                     alert(data.error);
                 }
             });
         });
 
-        function processImage(overlayType) {
+        function processImages(overlayType) {
             fetch('/process', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    filename: window.uploadedFilename,
+                    filenames: window.uploadedFilenames,
                     overlay_type: overlayType
                 })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.processed_filename) {
+                if (data.processed_filenames) {
                     document.getElementById('result').style.display = 'block';
-                    document.getElementById('downloadLink').href = '/download/' + data.processed_filename;
+                    var downloadLinks = document.getElementById('downloadLinks');
+                    downloadLinks.innerHTML = '';
+                    data.processed_filenames.forEach(function(filename) {
+                        var link = document.createElement('a');
+                        link.href = '/download/' + filename;
+                        link.textContent = 'Download ' + filename;
+                        link.download = filename;
+                        downloadLinks.appendChild(link);
+                        downloadLinks.appendChild(document.createElement('br'));
+                    });
                 } else {
                     alert(data.error);
                 }
