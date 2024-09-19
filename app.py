@@ -23,31 +23,36 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
+    if 'files' not in request.files:
         return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    if file and allowed_file(file.filename):
-        filename = str(uuid.uuid4()) + '.' + file.filename.rsplit('.', 1)[1].lower()
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(file_path)
-        return jsonify({'filename': filename}), 200
-    return jsonify({'error': 'File type not allowed'}), 400
+    files = request.files.getlist('files')
+    filenames = []
+    for file in files:
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        if file and allowed_file(file.filename):
+            filename = str(uuid.uuid4()) + '.' + file.filename.rsplit('.', 1)[1].lower()
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            file.save(file_path)
+            filenames.append(filename)
+    return jsonify({'filenames': filenames}), 200
 
 @app.route('/process', methods=['POST'])
 def process_file():
     data = request.json
-    filename = data.get('filename')
+    filenames = data.get('filenames')
     overlay_type = data.get('overlay_type')
-    if not filename or not overlay_type:
+    if not filenames or not overlay_type:
         return jsonify({'error': 'Invalid request'}), 400
-    file_path = os.path.join(UPLOAD_FOLDER, filename)
-    if not os.path.exists(file_path):
-        return jsonify({'error': 'File not found'}), 404
-    user_id = str(uuid.uuid4())
-    processed_path = overlay(file_path, user_id, overlay_type, 1.5, None)
-    return jsonify({'processed_filename': os.path.basename(processed_path)}), 200
+    processed_filenames = []
+    for filename in filenames:
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        if not os.path.exists(file_path):
+            return jsonify({'error': f'File not found: {filename}'}), 404
+        user_id = str(uuid.uuid4())
+        processed_path = overlay(file_path, user_id, overlay_type, 1.5, None)
+        processed_filenames.append(os.path.basename(processed_path))
+    return jsonify({'processed_filenames': processed_filenames}), 200
 
 @app.route('/download/<filename>')
 def download_file(filename):
