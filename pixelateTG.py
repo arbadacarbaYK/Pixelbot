@@ -57,9 +57,6 @@ overlay_adjustments = {
     'chad': {'x_offset': -0.05, 'y_offset': -0.15, 'size_factor': 1.2}
 }
 
-# Add at the top with other globals
-OVERLAY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'overlays')
-
 def verify_permissions():
     """Verify write permissions for required directories"""
     for directory in ['processed', 'downloads']:
