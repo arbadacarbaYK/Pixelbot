@@ -84,14 +84,18 @@ def verify_permissions():
             return False
     return True
 
-def get_file_path(directory, id_prefix, session_id, action_type):
-    """Generate consistent file paths with proper ID prefix"""
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    # Special handling for GIFs while maintaining JPG default
-    if action_type == 'gif':
-        return os.path.join(directory, f'{id_prefix}_{session_id}_original.gif')
-    return os.path.join(directory, f'{id_prefix}_{session_id}_{action_type}.jpg')
+def get_file_path(directory, id_prefix, session_id, suffix):
+    """Generate a file path with the given parameters"""
+    # Make sure we don't add .jpg to GIF files
+    if suffix.endswith('.gif.jpg'):
+        suffix = suffix.replace('.gif.jpg', '.gif')
+    elif suffix.endswith('.gif'):
+        # Keep as is
+        pass
+    elif not suffix.endswith('.jpg'):
+        suffix = f"{suffix}.jpg"
+        
+    return os.path.join(directory, f"{id_prefix}_{session_id}_{suffix}")
 
 def cleanup_temp_files():
     """Clean up temporary files in downloads and processed directories"""
@@ -132,7 +136,7 @@ def get_id_prefix(update):
     """Generate a consistent ID prefix for a user"""
     return f"user_{update.effective_user.id}"
 
-def process_image(input_path, output_path, overlay_type):
+def process_image(input_path, output_path, overlay_type, selected_overlay=None):
     try:
         image = cv2.imread(input_path)
         if image is None:
@@ -153,15 +157,26 @@ def process_image(input_path, output_path, overlay_type):
                 pixelated = cv2.resize(temp, (w_face, h_face), interpolation=cv2.INTER_NEAREST)
                 image[y:y+h, x:x+w] = pixelated
         else:
-            overlay_files = get_overlay_files(overlay_type)
+            # If a specific overlay was provided (for GIFs), use it
+            if selected_overlay:
+                overlay_files = [selected_overlay]
+            else:
+                # Otherwise get all overlays of this type
+                overlay_dir = os.path.join('overlays', overlay_type)
+                overlay_files = glob.glob(os.path.join(overlay_dir, f"{overlay_type}_*.png"))
+                
             if not overlay_files:
+                logger.error(f"No overlay files found for {overlay_type}")
                 return False
                 
             for face in faces:
                 x, y, w, h = face['rect']
                 angle = face.get('angle', 0)
                 
-                overlay_path = random.choice(overlay_files)
+                # For single images or if no specific overlay was provided, choose randomly
+                # For GIFs with a specific overlay, use the provided one
+                overlay_path = overlay_files[0] if selected_overlay else random.choice(overlay_files)
+                
                 overlay_img = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
                 if overlay_img is None:
                     continue
@@ -190,7 +205,6 @@ def process_image(input_path, output_path, overlay_type):
                         
         cv2.imwrite(output_path, image)
         return True
-        
     except Exception as e:
         logger.error(f"Error in process_image: {str(e)}")
         logger.error(traceback.format_exc())
@@ -311,34 +325,26 @@ def chad_overlay(photo_path, output_path):
 
 def process_gif(gif_path, session_id, id_prefix, bot, action):
     try:
-        # Verify input file exists and is a GIF
-        if not os.path.exists(gif_path):
-            logger.error(f"Input file not found: {gif_path}")
-            return None
-            
-        # Get output path first
+        # Get output path first - make sure it has .gif extension
         processed_gif_path = get_file_path('processed', id_prefix, session_id, f'{action}.gif')
         
-        # Use GifProcessor's built-in methods
-        processor = GifProcessor()
-        frames, durations = processor.read_gif(gif_path)
+        # Use the existing process_telegram_gif function
+        success = process_telegram_gif(
+            gif_path,
+            processed_gif_path,
+            process_image,  # This is the same function used for photos
+            action=action   # Pass the action (pixelate/overlay type)
+        )
         
-        if not frames:
-            logger.error("Could not read frames from GIF")
-            return None
-            
-        # Process frames using the processor's built-in method
-        processed_frames = processor.process_frames(frames, process_image, action=action)
+        if success and os.path.exists(processed_gif_path):
+            # Verify it's actually a GIF file
+            if os.path.getsize(processed_gif_path) > 0:
+                logger.info(f"Successfully processed GIF: {processed_gif_path}")
+                return processed_gif_path
+            else:
+                logger.error(f"Processed GIF file is empty: {processed_gif_path}")
         
-        if not processed_frames:
-            logger.error("No frames were processed successfully")
-            return None
-            
-        # Save using the processor's save method
-        if processor.save_gif(processed_frames, processed_gif_path, durations[0] if durations else 0.1):
-            return processed_gif_path
-            
-        logger.error("Failed to save processed GIF")
+        logger.error("Failed to process GIF")
         return None
             
     except Exception as e:
@@ -548,6 +554,17 @@ def photo_command(update: Update, context: CallbackContext) -> None:
         return
     # Process the replied-to photo
     handle_message(update, context, photo=update.message.reply_to_message)
+
+def help_command(update: Update, context: CallbackContext) -> None:
+    """Send a message when the command /help is issued."""
+    help_text = (
+        "Send me a photo or GIF with faces, and I'll pixelate them or add fun overlays!\n\n"
+        "Commands:\n"
+        "/start - Start the bot\n"
+        "/help - Show this help message\n\n"
+        "Just send a photo or GIF with faces, and I'll process it!"
+    )
+    update.message.reply_text(help_text)
 
 def main() -> None:
     try:
