@@ -8,7 +8,6 @@ import numpy as np
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CallbackContext, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
 from concurrent.futures import ThreadPoolExecutor, wait
-from mtcnn.mtcnn import MTCNN
 from uuid import uuid4
 import time
 import logging
@@ -16,12 +15,18 @@ import traceback
 import socket
 import urllib3
 from telegram.utils.request import Request
+import psutil
+import glob
+import logging.handlers
+from gif_processor import process_telegram_gif
+from constants import PIXELATION_FACTOR, detect_heads
+from gif_processor import GifProcessor
 
 # Configure DNS settings
 socket.setdefaulttimeout(20)
 urllib3.disable_warnings()
 
-# Add this after the other imports at the top (around line 12)
+# Configure logging
 logging.basicConfig(
     filename='pixelbot_debug.log',
     level=logging.DEBUG,
@@ -29,36 +34,38 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables from .env file
+logging.getLogger('telegram').setLevel(logging.INFO)
+logging.getLogger('telegram.ext.dispatcher').setLevel(logging.INFO)
+logging.getLogger('telegram.bot').setLevel(logging.INFO)
+
 load_dotenv()
 
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 MAX_THREADS = 15
-PIXELATION_FACTOR = 0.04
 RESIZE_FACTOR = 2.0
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
-
-# Global MTCNN detector
-mtcnn_detector = MTCNN()
 
 # Cache for overlay files
 overlay_cache = {}
 
-# At the top with other globals
 overlay_image_cache = {}
 
-# Add this with the other globals at the top
 overlay_adjustments = {
-    'clown': {'x_offset': -0.15, 'y_offset': -0.25, 'size_factor': 1.4},
-    'liotta': {'x_offset': -0.05, 'y_offset': -0.15, 'size_factor': 1.2},
-    'skull': {'x_offset': -0.05, 'y_offset': -0.15, 'size_factor': 1.3},
-    'cat': {'x_offset': -0.15, 'y_offset': -0.25, 'size_factor': 1.4},
-    'pepe': {'x_offset': -0.05, 'y_offset': -0.2, 'size_factor': 1.3},
-    'chad': {'x_offset': -0.05, 'y_offset': -0.15, 'size_factor': 1.2}
+    'clown': {'x_offset': -0.15, 'y_offset': -0.25, 'size_factor': 1.66},
+    'liotta': {'x_offset': -0.12, 'y_offset': -0.2, 'size_factor': 1.5},
+    'skull': {'x_offset': -0.25, 'y_offset': -0.5, 'size_factor': 1.65},
+    'cat': {'x_offset': -0.15, 'y_offset': -0.45, 'size_factor': 1.5}, 
+    'pepe': {'x_offset': -0.05, 'y_offset': -0.2, 'size_factor': 1.4},
+    'chad': {'x_offset': -0.15, 'y_offset': -0.15, 'size_factor': 1.6}  
 }
 
+face_detection_cache = {}
+
+rotated_overlay_cache = {}
+
 def verify_permissions():
-    """Verify write permissions for required directories"""
+    logger.info(f"Current working directory: {os.getcwd()}")
+    logger.info(f"Verifying permissions for directories...")
     for directory in ['processed', 'downloads']:
         try:
             if not os.path.exists(directory):
@@ -81,6 +88,9 @@ def get_file_path(directory, id_prefix, session_id, action_type):
     """Generate consistent file paths with proper ID prefix"""
     if not os.path.exists(directory):
         os.makedirs(directory)
+    # Special handling for GIFs while maintaining JPG default
+    if action_type == 'gif':
+        return os.path.join(directory, f'{id_prefix}_{session_id}_original.gif')
     return os.path.join(directory, f'{id_prefix}_{session_id}_{action_type}.jpg')
 
 def cleanup_temp_files():
@@ -95,95 +105,89 @@ def start(update: Update, context: CallbackContext) -> None:
     """Handle /start command"""
     update.message.reply_text("Send me a photo to get started!")
 
-def detect_heads(image):
-    """Detect faces using MTCNN"""
-    try:
-        faces = mtcnn_detector.detect_faces(image)
-        return [(f['box'][0], f['box'][1], f['box'][2], f['box'][3]) for f in faces]
-    except Exception as e:
-        logger.error(f"Error detecting faces: {str(e)}")
-        return []
-
 def get_overlay_files(overlay_type):
-    """Get list of overlay files for a given type"""
-    try:
-        if overlay_type in overlay_cache:
-            return overlay_cache[overlay_type]
-            
-        # Get current working directory (root)
-        current_dir = os.getcwd()
-        logger.debug(f"Looking for overlays in: {current_dir}")
-        
-        # Search for overlay files
-        files = []
-        for f in os.listdir(current_dir):
-            if f.startswith(f'{overlay_type}_') and f.endswith('.png'):
-                full_path = os.path.join(current_dir, f)
-                if os.path.isfile(full_path):
-                    files.append(full_path)
-                    logger.debug(f"Found overlay file: {full_path}")
-                    
-        if not files:
-            logger.error(f"No overlay files found for type: {overlay_type}")
-            return []
-            
-        overlay_cache[overlay_type] = files
-        return files
-        
-    except Exception as e:
-        logger.error(f"Error getting overlay files: {str(e)}")
-        logger.error(traceback.format_exc())
+    """Get list of overlay files for given type"""
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    pattern = f"{overlay_type}_*.png"
+    overlay_files = glob.glob(os.path.join(base_path, pattern))
+    
+    if not overlay_files:
+        logger.error(f"No overlay files found matching pattern: {pattern}")
+        logger.error(f"Searched in directory: {base_path}")
         return []
-
-def get_cached_overlay(overlay_file):
-    """Get overlay image from cache or load it"""
-    try:
-        if overlay_file in overlay_image_cache:
-            return overlay_image_cache[overlay_file]
-            
-        overlay_img = cv2.imread(overlay_file, cv2.IMREAD_UNCHANGED)
-        if overlay_img is None:
-            logger.error(f"Failed to read overlay file: {overlay_file}")
-            return None
-            
-        overlay_image_cache[overlay_file] = overlay_img
-        logger.debug(f"Cached overlay image: {overlay_file}")
-        return overlay_img
         
-    except Exception as e:
-        logger.error(f"Error loading overlay image: {str(e)}")
-        return None
+    return overlay_files
+
+def get_cached_overlay(overlay_path):
+    if overlay_path in overlay_image_cache:
+        return overlay_image_cache[overlay_path].copy()
+    
+    overlay_img = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
+    if overlay_img is not None:
+        overlay_image_cache[overlay_path] = overlay_img
+        logger.debug(f"Cached overlay image: {overlay_path}")
+    return overlay_img.copy() if overlay_img is not None else None
 
 def get_id_prefix(update):
     """Generate a consistent ID prefix for a user"""
     return f"user_{update.effective_user.id}"
 
-def process_image(input_path, output_path):
+def process_image(input_path, output_path, overlay_type):
     try:
-        # Read image
         image = cv2.imread(input_path)
         if image is None:
-            logger.error(f"Failed to read image: {input_path}")
             return False
             
-        # Detect faces
-        faces = mtcnn_detector.detect_faces(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        faces = detect_heads(image)
         if not faces:
-            logger.warning("No faces detected in image")
             return False
             
-        # Process each face
-        for face in faces:
-            x, y, width, height = [int(v) for v in face['box']]
-            face_region = image[y:y+height, x:x+width]
-            
-            # Pixelate face
-            if face_region.size > 0:  # Check if region is valid
-                small = cv2.resize(face_region, (0,0), fx=PIXELATION_FACTOR, fy=PIXELATION_FACTOR)
-                pixelated = cv2.resize(small, (width, height), interpolation=cv2.INTER_NEAREST)
-                image[y:y+height, x:x+width] = pixelated
-            
-        # Save result
+        if overlay_type == 'pixelate':
+            for face in faces:
+                x, y, w, h = face['rect']
+                face_region = image[y:y+h, x:x+w]
+                h_face, w_face = face_region.shape[:2]
+                w_small = int(w_face * PIXELATION_FACTOR)
+                h_small = int(h_face * PIXELATION_FACTOR)
+                temp = cv2.resize(face_region, (w_small, h_small), interpolation=cv2.INTER_LINEAR)
+                pixelated = cv2.resize(temp, (w_face, h_face), interpolation=cv2.INTER_NEAREST)
+                image[y:y+h, x:x+w] = pixelated
+        else:
+            overlay_files = get_overlay_files(overlay_type)
+            if not overlay_files:
+                return False
+                
+            for face in faces:
+                x, y, w, h = face['rect']
+                angle = face.get('angle', 0)
+                
+                overlay_path = random.choice(overlay_files)
+                overlay_img = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
+                if overlay_img is None:
+                    continue
+                    
+                adjustment = overlay_adjustments.get(overlay_type, {'x_offset': 0, 'y_offset': 0, 'size_factor': 1.0})
+                overlay_width = int(w * adjustment['size_factor'])
+                overlay_height = int(overlay_width * overlay_img.shape[0] / overlay_img.shape[1])
+                
+                x_pos = max(0, min(image.shape[1] - overlay_width, x + int(w * adjustment['x_offset'])))
+                y_pos = max(0, min(image.shape[0] - overlay_height, y + int(h * adjustment['y_offset'])))
+                
+                # Ensure overlay fits within image bounds
+                overlay_width = min(overlay_width, image.shape[1] - x_pos)
+                overlay_height = min(overlay_height, image.shape[0] - y_pos)
+                
+                overlay_resized = cv2.resize(overlay_img, (overlay_width, overlay_height))
+                
+                # Apply overlay with proper shape matching
+                alpha = overlay_resized[:, :, 3] / 255.0
+                alpha = np.expand_dims(alpha, axis=-1)
+                
+                for c in range(3):
+                    image[y_pos:y_pos+overlay_height, x_pos:x_pos+overlay_width, c] = \
+                        image[y_pos:y_pos+overlay_height, x_pos:x_pos+overlay_width, c] * (1 - alpha[:,:,0]) + \
+                        overlay_resized[:, :, c] * alpha[:,:,0]
+                        
         cv2.imwrite(output_path, image)
         return True
         
@@ -193,20 +197,16 @@ def process_image(input_path, output_path):
         return False
 
 def get_random_overlay_file(overlay_type):
-    """Get a random overlay file of the given type"""
     try:
-        # Find all files matching pattern overlay_type_N.png
-        matching_files = [f for f in os.listdir('.') if f.startswith(f'{overlay_type}_') and f.endswith('.png')]
-        if not matching_files:
-            logger.error(f"No overlay files found for type: {overlay_type}")
+        overlay_files = get_overlay_files(overlay_type)
+        if not overlay_files:
             return None
-        return random.choice(matching_files)
+        return random.choice(overlay_files)
     except Exception as e:
-        logger.error(f"Error finding overlay files: {str(e)}")
+        logger.error(f"Error in get_random_overlay_file: {str(e)}")
         return None
 
-def overlay(input_path, overlay_type, output_path):
-    """Apply overlay to detected faces"""
+def overlay(input_path, overlay_type, output_path, faces=None):
     try:
         logger.debug(f"Starting overlay process for {overlay_type}")
         
@@ -216,113 +216,69 @@ def overlay(input_path, overlay_type, output_path):
             logger.error(f"Failed to read input image: {input_path}")
             return False
             
-        # Convert for face detection
-        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        faces = mtcnn_detector.detect_faces(rgb_image)
+        # Only detect faces if not provided
+        if faces is None:
+            faces = detect_heads(image)
+            
+        logger.debug(f"Processing {len(faces)} faces")
         
-        logger.debug(f"Detected {len(faces)} faces")
-        
-        if not faces:
+        if len(faces) == 0:
             logger.error("No faces detected in image")
             return False
 
-        # Get overlay files
         overlay_files = get_overlay_files(overlay_type)
         if not overlay_files:
             logger.error(f"No overlay files found for type: {overlay_type}")
             return False
             
-        # Pick random overlay
-        overlay_file = random.choice(overlay_files)
-        logger.debug(f"Selected overlay: {overlay_file}")
-        
-        # Get full path to overlay file
-        overlay_path = os.path.join(os.getcwd(), overlay_file)
-        logger.debug(f"Full overlay path: {overlay_path}")
-        
-        # Read overlay with alpha channel
-        overlay_img = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
-        if overlay_img is None:
-            logger.error(f"Failed to read overlay: {overlay_path}")
-            return False
+        for face in faces:
+            overlay_file = random.choice(overlay_files)
+            overlay_path = os.path.join(os.getcwd(), overlay_file)
+            overlay_img = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
             
-        # Check if overlay has alpha channel
-        has_alpha = overlay_img.shape[2] == 4 if len(overlay_img.shape) > 2 else False
-        if not has_alpha:
-            logger.error(f"Overlay image doesn't have alpha channel: {overlay_path}")
-            # Create a dummy alpha channel (fully opaque)
-            if len(overlay_img.shape) == 3:
-                b, g, r = cv2.split(overlay_img)
-                alpha = np.ones(b.shape, dtype=b.dtype) * 255
-                overlay_img = cv2.merge((b, g, r, alpha))
-            else:
-                # Grayscale image
-                gray = overlay_img
-                alpha = np.ones(gray.shape, dtype=gray.dtype) * 255
-                overlay_img = cv2.merge((gray, gray, gray, alpha))
-        
-        logger.debug(f"Overlay shape: {overlay_img.shape}")
-        
-        # Process each face
-        for face_idx, face in enumerate(faces):
-            try:
-                x, y, width, height = face['box']
-                
-                # Get adjustments
-                adjust = overlay_adjustments.get(overlay_type, {
-                    'x_offset': 0,
-                    'y_offset': 0, 
-                    'size_factor': 1.0
-                })
-                
-                # Calculate overlay size
-                overlay_width = int(width * adjust['size_factor'])
-                overlay_height = int(height * adjust['size_factor'])
-                
-                # Calculate position
-                x_pos = max(0, x + int(width * adjust['x_offset']))
-                y_pos = max(0, y + int(height * adjust['y_offset']))
-                
-                # Make sure overlay doesn't go out of bounds
-                if x_pos + overlay_width > image.shape[1]:
-                    overlay_width = image.shape[1] - x_pos
-                if y_pos + overlay_height > image.shape[0]:
-                    overlay_height = image.shape[0] - y_pos
-                
-                if overlay_width <= 0 or overlay_height <= 0:
-                    logger.warning(f"Overlay dimensions invalid: {overlay_width}x{overlay_height}")
-                    continue
-                
-                # Resize overlay
-                overlay_resized = cv2.resize(overlay_img, (overlay_width, overlay_height))
-                
-                # Get the region of the image where we'll place the overlay
-                roi = image[y_pos:y_pos+overlay_height, x_pos:x_pos+overlay_width]
-                
-                # Create a mask from the alpha channel
-                alpha_channel = overlay_resized[:,:,3] / 255.0
-                alpha_3channel = np.stack([alpha_channel, alpha_channel, alpha_channel], axis=2)
-                
-                # Apply the overlay
-                foreground = overlay_resized[:,:,:3] * alpha_3channel
-                background = roi * (1 - alpha_3channel)
-                result = foreground + background
-                
-                # Place the result back in the image
-                image[y_pos:y_pos+overlay_height, x_pos:x_pos+overlay_width] = result
-                
-                logger.debug(f"Applied overlay to face {face_idx+1}")
-                
-            except Exception as e:
-                logger.error(f"Error processing face {face_idx+1}: {str(e)}")
-                logger.error(traceback.format_exc())
+            if overlay_img is None:
+                logger.error(f"Failed to read overlay: {overlay_path}")
                 continue
-
-        # Save result
+                
+            rect = face['rect']
+            angle = face['angle']
+            x, y, w, h = rect
+            
+            adjust = overlay_adjustments.get(overlay_type, {
+                'x_offset': 0, 'y_offset': 0, 'size_factor': 1.0
+            })
+            
+            # Calculate size and position
+            overlay_width = int(w * adjust['size_factor'])
+            overlay_height = int(h * adjust['size_factor'])
+            x_pos = int(x + w * adjust['x_offset'])
+            y_pos = int(y + h * adjust['y_offset'])
+            
+            # Resize overlay
+            overlay_resized = cv2.resize(overlay_img, (overlay_width, overlay_height))
+            
+            # Create rotation matrix around center of overlay
+            center = (x_pos + overlay_width//2, y_pos + overlay_height//2)
+            M = cv2.getRotationMatrix2D(center, angle, 1.0)
+            
+            # Create a larger canvas for rotation to prevent cropping
+            canvas = np.zeros((image.shape[0], image.shape[1], 4), dtype=np.uint8)
+            canvas[y_pos:y_pos+overlay_height, x_pos:x_pos+overlay_width] = overlay_resized
+            
+            # Apply rotation
+            rotated_canvas = cv2.warpAffine(canvas, M, (image.shape[1], image.shape[0]))
+            
+            # Blend with original image
+            alpha = rotated_canvas[:, :, 3] / 255.0
+            alpha = np.expand_dims(alpha, axis=-1)
+            overlay_rgb = rotated_canvas[:, :, :3]
+            
+            image = image * (1 - alpha) + overlay_rgb * alpha
+            
+        image = image.astype(np.uint8)
         cv2.imwrite(output_path, image)
-        logger.debug(f"Saved processed image to: {output_path}")
         return True
-
+        
     except Exception as e:
         logger.error(f"Error in overlay function: {str(e)}")
         logger.error(traceback.format_exc())
@@ -331,251 +287,332 @@ def overlay(input_path, overlay_type, output_path):
 # Overlay functions
 def clown_overlay(photo_path, output_path):
     logger.info("Starting clowns overlay")
-    return overlay(photo_path, 'clown', output_path)
+    return process_image(photo_path, output_path, 'clown')
 
 def liotta_overlay(photo_path, output_path):
     logger.info("Starting liotta overlay")
-    return overlay(photo_path, 'liotta', output_path)
+    return process_image(photo_path, output_path, 'liotta')
 
 def skull_overlay(photo_path, output_path):
     logger.info("Starting skull overlay")
-    return overlay(photo_path, 'skull', output_path)
+    return process_image(photo_path, output_path, 'skull')
 
 def cat_overlay(photo_path, output_path):
     logger.info("Starting cats overlay")
-    return overlay(photo_path, 'cat', output_path)
+    return process_image(photo_path, output_path, 'cat')
 
 def pepe_overlay(photo_path, output_path):
     logger.info("Starting pepe overlay")
-    return overlay(photo_path, 'pepe', output_path)
+    return process_image(photo_path, output_path, 'pepe')
 
 def chad_overlay(photo_path, output_path):
     logger.info("Starting chad overlay")
-    return overlay(photo_path, 'chad', output_path)
+    return process_image(photo_path, output_path, 'chad')
 
-def process_gif(gif_path, session_id, id_prefix, bot):
-    reader = imageio.get_reader(gif_path)
-    processed_frames = []
-    
-    for frame in reader:
-        # Convert frame to temporary image file
-        temp_frame_path = get_file_path('downloads', id_prefix, session_id, 'frame')
-        temp_output_path = get_file_path('processed', id_prefix, session_id, 'frame')
-        imageio.imwrite(temp_frame_path, frame)
-        
-        process_image(temp_frame_path, temp_output_path)
-        processed_frame = imageio.imread(temp_output_path)
-        processed_frames.append(processed_frame)
-        
-        # Cleanup temp files
-        os.remove(temp_frame_path)
-        os.remove(temp_output_path)
-    
-    processed_gif_path = get_file_path('processed', id_prefix, session_id, 'gif')
-    imageio.mimsave(processed_gif_path, processed_frames)
-    return processed_gif_path
-
-def handle_message(update: Update, context: CallbackContext) -> None:
+def process_gif(gif_path, session_id, id_prefix, bot, action):
     try:
-        # Generate session ID
+        # Verify input file exists and is a GIF
+        if not os.path.exists(gif_path):
+            logger.error(f"Input file not found: {gif_path}")
+            return None
+            
+        # Get output path first
+        processed_gif_path = get_file_path('processed', id_prefix, session_id, f'{action}.gif')
+        
+        # Use GifProcessor's built-in methods
+        processor = GifProcessor()
+        frames, durations = processor.read_gif(gif_path)
+        
+        if not frames:
+            logger.error("Could not read frames from GIF")
+            return None
+            
+        # Process frames using the processor's built-in method
+        processed_frames = processor.process_frames(frames, process_image, action=action)
+        
+        if not processed_frames:
+            logger.error("No frames were processed successfully")
+            return None
+            
+        # Save using the processor's save method
+        if processor.save_gif(processed_frames, processed_gif_path, durations[0] if durations else 0.1):
+            return processed_gif_path
+            
+        logger.error("Failed to save processed GIF")
+        return None
+            
+    except Exception as e:
+        logger.error(f"Error in process_gif: {str(e)}")
+        logger.error(traceback.format_exc())
+        return None
+
+def handle_message(update: Update, context: CallbackContext, photo=None) -> None:
+    try:
+        message = photo if photo else update.message
+        chat_id = message.chat_id
         session_id = str(uuid4())
-        id_prefix = get_id_prefix(update)
-        
-        # Get the largest photo
-        photo = max(update.message.photo, key=lambda x: x.file_size)
-        photo_file = context.bot.get_file(photo.file_id)
-        
-        # Download photo
-        output_path = get_file_path('downloads', id_prefix, session_id, 'original')
-        photo_file.download(output_path)
-        logger.info(f"Downloaded photo to {output_path}")
-        
-        # Store session data
-        context.chat_data[session_id] = {
-            'chat_id': update.effective_chat.id,
+        id_prefix = f"user_{chat_id}"
+
+        session_data = {
+            'chat_id': chat_id,
             'id_prefix': id_prefix,
-            'photo_path': output_path
+            'session_id': session_id,
+            'is_gif': False
         }
+
+        if message.animation:
+            input_path = get_file_path('downloads', id_prefix, session_id, 'gif')
+            file = message.animation.get_file()
+            file.download(input_path)
+            logger.info(f"Downloaded GIF to {input_path}")
+            
+            if not os.path.exists(input_path):
+                logger.error(f"Failed to download GIF to {input_path}")
+                return
+                
+            session_data['is_gif'] = True
+            session_data['input_path'] = input_path
+        elif message.photo:
+            input_path = get_file_path('downloads', id_prefix, session_id, 'original')
+            file = context.bot.get_file(message.photo[-1].file_id)
+            file.download(input_path)
+            logger.info(f"Downloaded photo to {input_path}")
+            session_data['input_path'] = input_path
+
+        # Store session data
+        context.user_data[session_id] = session_data
         logger.debug(f"Created new session: {session_id}")
-        
-        # Create keyboard and send menu
+
+        # Create keyboard
         keyboard = [
-            [InlineKeyboardButton("🤡 Clowns", callback_data=f'clown_{session_id}'),
-             InlineKeyboardButton("😂 Liotta", callback_data=f'liotta_{session_id}'),
-             InlineKeyboardButton("☠️ Skull", callback_data=f'skull_{session_id}')],
-            [InlineKeyboardButton("🐈‍⬛ Cats", callback_data=f'cat_{session_id}'),
-             InlineKeyboardButton("🐸 Pepe", callback_data=f'pepe_{session_id}'),
-             InlineKeyboardButton("🏆 Chad", callback_data=f'chad_{session_id}')],
-            [InlineKeyboardButton("⚔️ Pixel", callback_data=f'pixelate_{session_id}')],
-            [InlineKeyboardButton("CLOSE ME", callback_data=f'cancel_{session_id}')]
+            [
+                InlineKeyboardButton("🎲 Pixelate", callback_data=f"{session_id}:pixelate"),
+                InlineKeyboardButton("🤡 Clown", callback_data=f"{session_id}:clown"),
+                InlineKeyboardButton("😎 Ray Liotta", callback_data=f"{session_id}:liotta")
+            ],
+            [
+                InlineKeyboardButton("💀 Skull", callback_data=f"{session_id}:skull"),
+                InlineKeyboardButton("😺 Cat", callback_data=f"{session_id}:cat"),
+                InlineKeyboardButton("🐸 Pepe", callback_data=f"{session_id}:pepe")
+            ],
+            [
+                InlineKeyboardButton("👨 Chad", callback_data=f"{session_id}:chad")
+            ],
+            [
+                InlineKeyboardButton("❌ Close", callback_data=f"{session_id}:cancel")
+            ]
         ]
-        
         reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text("Choose an option:", reply_markup=reply_markup)
-        
+        message.reply_text('Choose an effect:', reply_markup=reply_markup)
+
     except Exception as e:
         logger.error(f"Error in handle_message: {str(e)}")
         logger.error(traceback.format_exc())
 
 def cleanup_before_start(bot):
-    """Clean up any pending messages or files before starting"""
-    cleanup_temp_files()
+    """Clean up before starting the bot"""
     logger.info("Cleanup before start completed")
+    return True
+
+def error_handler(update: Update, context: CallbackContext) -> None:
+    """Log Errors caused by Updates."""
+    logger.error(f'Update "{update}" caused error "{context.error}"')
 
 def button_callback(update: Update, context: CallbackContext) -> None:
     try:
         query = update.callback_query
-        logger.debug(f"Received callback query: {query.data}")
-        query.answer()
+        session_id, action = query.data.split(':')
         
-        callback_data = query.data
-        action, session_id = callback_data.split('_', 1)
-        logger.debug(f"Processing action: {action} for session: {session_id}")
-        
+        # Only delete message if cancel is pressed
+        if action == 'cancel':
+            query.message.delete()
+            return
+            
         # Get session data
-        session_data = context.chat_data.get(session_id)
+        session_data = context.user_data.get(session_id)
         if not session_data:
             logger.error(f"No session data found for {session_id}")
             query.edit_message_text(text="Session expired, please send a new photo!")
             return
             
-        input_path = session_data['photo_path']
+        input_path = session_data['input_path']
         if not os.path.exists(input_path):
             logger.error(f"Input file not found: {input_path}")
             query.edit_message_text(text="Original photo not found, please send a new one!")
             return
+
+        # Handle GIF processing
+        if session_data.get('is_gif'):
+            output_path = process_gif(
+                session_data['input_path'],
+                session_id,
+                session_data['id_prefix'],
+                context.bot,
+                action=action  # Pass the selected action
+            )
             
-        output_path = get_file_path('processed', session_data['id_prefix'], session_id, action)
-        logger.debug(f"Processing from {input_path} to {output_path}")
-        
-        # Handle cancel action
-        if action == 'cancel':
-            query.edit_message_text(text="Closed!")
-            return
+            if output_path and os.path.exists(output_path):
+                with open(output_path, 'rb') as f:
+                    context.bot.send_animation(
+                        chat_id=session_data['chat_id'],
+                        animation=f,
+                        reply_to_message_id=query.message.message_id
+                    )
+            else:
+                query.answer("Failed to process GIF!")
+                return
+                
+        # Handle Photo processing
+        else:
+            output_path = get_file_path('processed', session_data['id_prefix'], session_id, action)
+            logger.debug(f"Processing from {input_path} to {output_path}")
             
-        try:
-            # Process based on action
             success = False
             if action == 'pixelate':
                 logger.debug("Starting pixelation...")
-                success = process_image(input_path, output_path)
+                success = process_image(input_path, output_path, 'pixelate')
             elif action in ['clown', 'liotta', 'skull', 'cat', 'pepe', 'chad']:
-                # Check overlay files
-                overlay_files = get_overlay_files(action)
-                if not overlay_files:
-                    logger.error(f"No overlay files found for {action}")
-                    query.edit_message_text(text=f"No {action} overlays available!")
-                    return
-                    
                 logger.debug(f"Starting {action} overlay...")
-                success = overlay(input_path, action, output_path)
-            else:
-                logger.error(f"Unknown action: {action}")
-                query.edit_message_text(text="Invalid action!")
-                return
-                
-            if not success:
-                logger.error(f"Processing failed for {action}")
-                query.edit_message_text(text=f"Failed to process {action}!")
-                return
-                
-            # Verify output file exists
-            if not os.path.exists(output_path):
-                logger.error(f"Output file not created: {output_path}")
-                query.edit_message_text(text="Failed to create output file!")
-                return
-                
-            # Send processed image
-            logger.debug(f"Sending processed image: {output_path}")
-            with open(output_path, 'rb') as f:
-                context.bot.send_photo(
-                    chat_id=session_data['chat_id'],
-                    photo=f,
-                    reply_to_message_id=query.message.message_id
-                )
-            query.message.delete()
+                success = process_image(input_path, output_path, action)
             
-            # Cleanup
-            try:
-                os.remove(output_path)
-                logger.debug(f"Cleaned up {output_path}")
-            except Exception as e:
-                logger.warning(f"Failed to cleanup {output_path}: {e}")
-                
+            if success:
+                with open(output_path, 'rb') as f:
+                    context.bot.send_photo(
+                        chat_id=session_data['chat_id'],
+                        photo=f,
+                        reply_to_message_id=query.message.message_id
+                    )
+            else:
+                query.answer(f"Failed to process {action}!")
+                return
+
+        # Just acknowledge the button press
+        query.answer()
+        
+        # Cleanup processed file
+        try:
+            os.remove(output_path)
+            logger.debug(f"Cleaned up {output_path}")
         except Exception as e:
-            error_msg = f"Processing error: {str(e)}"
-            logger.error(error_msg)
-            logger.error(traceback.format_exc())
-            query.edit_message_text(text=error_msg)
+            logger.warning(f"Failed to cleanup {output_path}: {e}")
             
     except Exception as e:
-        logger.error(f"Callback error: {str(e)}")
+        logger.error(f'Error in button callback: {str(e)}')
         logger.error(traceback.format_exc())
-        try:
-            query.edit_message_text(text=f"Error: {str(e)}")
-        except:
-            pass
+        if query:
+            query.answer("Sorry, there was an error processing your request")
+        cleanup_temp_files()
+
+def get_last_update_id() -> int:
+    try:
+        with open('pixelbot_last_update.txt', 'r') as f:
+            return int(f.read().strip())
+    except:
+        return 0
+
+def save_last_update_id(update_id: int) -> None:
+    with open('pixelbot_last_update.txt', 'w') as f:
+        f.write(str(update_id))
+
+def cleanup_old_files():
+    """Cleanup files older than 24 hours"""
+    current_time = time.time()
+    for directory in ['processed', 'downloads']:
+        if os.path.exists(directory):
+            for f in os.listdir(directory):
+                filepath = os.path.join(directory, f)
+                if os.path.getmtime(filepath) < (current_time - 86400):  # 24 hours
+                    try:
+                        os.remove(filepath)
+                        logger.debug(f"Removed old file: {filepath}")
+                    except Exception as e:
+                        logger.error(f"Failed to remove {filepath}: {e}")
+
+def get_rotated_overlay(overlay_img, angle, size):
+    """Cache and return rotated overlays"""
+    cache_key = f"{id(overlay_img)}_{angle}_{size}"
+    if cache_key in rotated_overlay_cache:
+        return rotated_overlay_cache[cache_key]
+        
+    rotated = cv2.warpAffine(
+        overlay_img,
+        cv2.getRotationMatrix2D((size[0]//2, size[1]//2), angle, 1.0),
+        size
+    )
+    rotated_overlay_cache[cache_key] = rotated
+    return rotated
+
+def photo_command(update: Update, context: CallbackContext) -> None:
+    # Check if this is a reply to a photo
+    if not update.message.reply_to_message or not update.message.reply_to_message.photo:
+        return
+    # Process the replied-to photo
+    handle_message(update, context, photo=update.message.reply_to_message)
 
 def main() -> None:
-    # Add permission check at the start
-    if not verify_permissions():
-        logger.error("Failed to verify directory permissions")
-        return
-        
-    # Ensure temp directories exist
-    for directory in ['processed', 'downloads']:
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-            logger.info(f"Created directory: {directory}")
-            
-    # Initial cleanup
-    cleanup_temp_files()
-    
-    # Configure DNS settings
-    socket.setdefaulttimeout(20)
-    urllib3.disable_warnings()
-    
-    # Initialize Updater with correct parameters
-    updater = Updater(
-        token=TOKEN,
-        use_context=True,
-        request_kwargs={
-            'connect_timeout': 20,
-            'read_timeout': 20
-        }
-    )
-    
-    cleanup_before_start(updater.bot)
-    dispatcher = updater.dispatcher
-
-    # Add debug logging for handler registration
-    logger.info("Registering handlers...")
-    
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(Filters.photo, handle_message))
-    dispatcher.add_handler(CallbackQueryHandler(button_callback))
-
-    # Add this right after the directory creation
-    logger.info(f"Current working directory: {os.getcwd()}")
-    logger.info(f"Available files: {os.listdir('.')}")
-
-    logger.info("Checking overlay files...")
-    for overlay_type in ['clown', 'liotta', 'skull', 'cat', 'pepe', 'chad']:
-        files = get_overlay_files(overlay_type)
-        for f in files:
-            img = cv2.imread(f, cv2.IMREAD_UNCHANGED)
-            if img is None:
-                logger.error(f"Cannot read {f}")
-            else:
-                logger.info(f"Successfully read {f} shape: {img.shape}")
-
-    logger.info("Starting polling...")
     try:
+        # Kill any existing instances
+        current_pid = os.getpid()
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            if proc.info['pid'] != current_pid:
+                try:
+                    cmdline = proc.info['cmdline']
+                    if cmdline and 'pixelateTG.py' in cmdline[0]:
+                        proc.kill()
+                        logger.info(f"Killed existing bot instance with PID {proc.info['pid']}")
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+
+        # Get environment from ENV var, default to 'development'
+        env = os.getenv('BOT_ENV', 'development')
+        logger.info(f"Starting bot in {env} environment")
+        
+        # Initialize as before
+        if not verify_permissions():
+            logger.error("Failed to verify directory permissions")
+            return
+            
+        for directory in ['processed', 'downloads']:
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+                logger.info(f"Created directory: {directory}")
+                
+        cleanup_temp_files()
+        socket.setdefaulttimeout(20)
+        urllib3.disable_warnings()
+        
+        # Use token from environment
+        if not TOKEN:
+            logger.error("No TELEGRAM_BOT_TOKEN found in environment")
+            return
+        token = TOKEN
+            
+        updater = Updater(
+            token=token,
+            use_context=True,
+            request_kwargs={
+                'connect_timeout': 20,
+                'read_timeout': 20
+            }
+        )
+        
+        cleanup_before_start(updater.bot)
+        dispatcher = updater.dispatcher
+
+        # Register handlers
+        logger.info("Registering handlers...")
+        dispatcher.add_handler(CommandHandler("start", start))
+        dispatcher.add_handler(CommandHandler("help", help_command))
+        dispatcher.add_handler(CommandHandler("photo", photo_command))
+        dispatcher.add_handler(MessageHandler(Filters.photo | Filters.animation, handle_message))
+        dispatcher.add_handler(CallbackQueryHandler(button_callback))
+        
+        logger.info("Starting bot in development mode...")
         updater.start_polling()
-        logger.info("Bot is now running")
         updater.idle()
+        
     except Exception as e:
-        logger.error(f"Failed to start bot: {str(e)}")
+        logger.error(f"Error in main: {str(e)}")
         logger.error(traceback.format_exc())
 
 if __name__ == "__main__":
