@@ -151,6 +151,16 @@ def process_image(photo_path, output_path, effect_type, selected_overlay=None, f
         
         output = image.copy()
         
+        # Ensure an overlay is selected if effect_type is not 'pixelate'
+        if effect_type != 'pixelate' and not selected_overlay:
+            overlay_files = glob.glob(f"{effect_type}_*.png")
+            if overlay_files:
+                selected_overlay = random.choice(overlay_files)
+                logger.info(f"Selected overlay: {selected_overlay}")
+            else:
+                logger.error("No overlay files found for the selected effect type.")
+                return False
+        
         for face in faces:
             x, y, w, h = face['rect']
             angle = face['angle']
