@@ -360,8 +360,10 @@ def process_gif(gif_path, session_id, id_prefix, bot, action):
 
 def handle_message(update: Update, context: CallbackContext, photo=None) -> None:
     try:
+        logger.debug("Function called")
         message = photo if photo else update.message
         chat_id = message.chat_id
+        
         session_id = str(uuid4())
         id_prefix = f"user_{chat_id}"
 
@@ -389,7 +391,6 @@ def handle_message(update: Update, context: CallbackContext, photo=None) -> None
             is_gif = True
             
         if not file_id:
-            logger.error("No file_id found in message")
             return
             
         # Download the file
@@ -398,36 +399,30 @@ def handle_message(update: Update, context: CallbackContext, photo=None) -> None
         
         file = context.bot.get_file(file_id)
         file.download(file_path)
+        logger.info(f"Downloaded {'GIF' if is_gif else 'photo'} to {file_path}")
         
-        if is_gif:
-            logger.info(f"Downloaded GIF to {file_path}")
-        else:
-            logger.info(f"Downloaded photo to {file_path}")
-            
-        # Store file path in session data
+        # Store session data
         session_data['input_path'] = file_path
         session_data['is_gif'] = is_gif
-
-        # Store session data
         context.user_data[session_id] = session_data
         logger.debug(f"Created new session: {session_id}")
-
+        
         # Create keyboard with effect options
         keyboard = [
             [
-                InlineKeyboardButton("🧩 Pixelate", callback_data=f"pixelate:{session_id}"),
-                InlineKeyboardButton("🤡 Clown", callback_data=f"clown:{session_id}")
+                InlineKeyboardButton("🧩 Pixelate", callback_data=f"pixelate:{session_id}")
             ],
             [
+                InlineKeyboardButton("🤡 Clown", callback_data=f"clown:{session_id}"),
                 InlineKeyboardButton("😎 Liotta", callback_data=f"liotta:{session_id}"),
                 InlineKeyboardButton("💀 Skull", callback_data=f"skull:{session_id}")
             ],
             [
                 InlineKeyboardButton("🐱 Cat", callback_data=f"cat:{session_id}"),
-                InlineKeyboardButton("🐸 Pepe", callback_data=f"pepe:{session_id}")
+                InlineKeyboardButton("🐸 Pepe", callback_data=f"pepe:{session_id}"),
+                InlineKeyboardButton("👨 Chad", callback_data=f"chad:{session_id}")
             ],
             [
-                InlineKeyboardButton("👨 Chad", callback_data=f"chad:{session_id}"),
                 InlineKeyboardButton("❌ Close", callback_data=f"close:{session_id}")
             ]
         ]
@@ -436,6 +431,7 @@ def handle_message(update: Update, context: CallbackContext, photo=None) -> None
         
         # Send the keyboard
         message.reply_text('Choose an effect:', reply_markup=reply_markup)
+        
     except Exception as e:
         logger.error(f"Error in handle_message: {str(e)}")
         logger.error(traceback.format_exc())
@@ -719,22 +715,31 @@ def main() -> None:
         logger.info("Registering handlers...")
         dispatcher = updater.dispatcher
         
-        # Command handlers
+        # Register error handler
+        dispatcher.add_error_handler(error_handler)
+        
+        # Command handlers - register pixel command with explicit filters for ALL chat types
+        dispatcher.add_handler(CommandHandler(
+            "pixel", 
+            handle_pixel_command,
+            filters=Filters.command & (Filters.chat_type.groups | Filters.chat_type.private)
+        ))
+        
+        # Other command handlers
         dispatcher.add_handler(CommandHandler("start", start))
         dispatcher.add_handler(CommandHandler("help", help_command))
-        dispatcher.add_handler(CommandHandler("pixel", handle_pixel_command))
         
         # Media handlers - photos and GIFs
         dispatcher.add_handler(MessageHandler(Filters.photo, handle_photo))
         dispatcher.add_handler(MessageHandler(Filters.document.category("image/gif") | 
-                                             Filters.animation, handle_photo))
+                                            Filters.animation, handle_photo))
         
         # Button callback handler
         dispatcher.add_handler(CallbackQueryHandler(button_callback))
         
-        # Start the Bot
+        # Start the Bot with clean state
         logger.info(f"Starting bot in {env} mode...")
-        updater.start_polling()
+        updater.start_polling(drop_pending_updates=True)
         
         # Run the bot until the user presses Ctrl-C
         updater.idle()
@@ -745,4 +750,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
