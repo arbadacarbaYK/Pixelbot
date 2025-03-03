@@ -13,6 +13,16 @@ import random
 
 logger = logging.getLogger(__name__)
 
+# Import overlay_adjustments from pixelateTG or define it here
+overlay_adjustments = {
+    'clown': {'x_offset': -0.15, 'y_offset': -0.25, 'size_factor': 1.66},
+    'liotta': {'x_offset': -0.12, 'y_offset': -0.2, 'size_factor': 1.5},
+    'skull': {'x_offset': -0.25, 'y_offset': -0.5, 'size_factor': 1.65},
+    'cat': {'x_offset': -0.15, 'y_offset': -0.45, 'size_factor': 1.5}, 
+    'pepe': {'x_offset': -0.05, 'y_offset': -0.2, 'size_factor': 1.4},
+    'chad': {'x_offset': -0.15, 'y_offset': -0.15, 'size_factor': 1.6}  
+}
+
 class GifProcessor:
     """Class for processing GIFs with various effects"""
     
@@ -70,11 +80,12 @@ def process_telegram_gif(input_path: str, output_path: str, process_func, **kwar
             temp_out = f"processed/temp_{uuid4()}.jpg"
             
             try:
-                # Save frame as JPEG
                 cv2.imwrite(temp_in, frame)
                 
-                # Process with the provided function, passing the selected overlay
-                if process_func(temp_in, temp_out, overlay_type, selected_overlay=selected_overlay):
+                # Detect faces in each frame to follow the movement
+                current_faces = detect_heads(frame)
+                
+                if process_func(temp_in, temp_out, overlay_type, selected_overlay=selected_overlay, faces=current_faces):
                     processed = cv2.imread(temp_out)
                     if processed is not None:
                         processed_frames.append(processed)
@@ -83,7 +94,6 @@ def process_telegram_gif(input_path: str, output_path: str, process_func, **kwar
                 else:
                     processed_frames.append(frame)
             finally:
-                # Clean up temp files
                 for temp in [temp_in, temp_out]:
                     if os.path.exists(temp):
                         os.remove(temp)
