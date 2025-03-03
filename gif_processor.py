@@ -8,6 +8,8 @@ import traceback
 from typing import List, Tuple, Optional
 from PIL import Image
 from constants import PIXELATION_FACTOR, detect_heads
+import glob
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,16 @@ def process_telegram_gif(input_path: str, output_path: str, process_func, **kwar
 
         # Process each frame
         processed_frames = []
-        overlay_type = kwargs.pop('action', 'pixelate')
+        overlay_type = kwargs.get('action', 'pixelate')
+        
+        # For overlays, pre-select one random overlay to use for all frames
+        selected_overlay = None
+        if overlay_type != 'pixelate':
+            # Get all overlays of this type
+            overlay_files = glob.glob(f"{overlay_type}_*.png")
+            if overlay_files:
+                selected_overlay = random.choice(overlay_files)
+                logger.info(f"Selected overlay for all frames: {selected_overlay}")
         
         for i, frame in enumerate(frames):
             temp_in = f"downloads/temp_{uuid4()}.jpg"
@@ -62,8 +73,8 @@ def process_telegram_gif(input_path: str, output_path: str, process_func, **kwar
                 # Save frame as JPEG
                 cv2.imwrite(temp_in, frame)
                 
-                # Process with the provided function
-                if process_func(temp_in, temp_out, overlay_type):
+                # Process with the provided function, passing the selected overlay
+                if process_func(temp_in, temp_out, overlay_type, selected_overlay=selected_overlay):
                     processed = cv2.imread(temp_out)
                     if processed is not None:
                         processed_frames.append(processed)
@@ -76,32 +87,13 @@ def process_telegram_gif(input_path: str, output_path: str, process_func, **kwar
                 for temp in [temp_in, temp_out]:
                     if os.path.exists(temp):
                         os.remove(temp)
-
+        
         # Convert to RGB for imageio
         rgb_frames = [cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) for frame in processed_frames]
         
-        # Write GIF using imageio with simple parameters
-        try:
-            imageio.mimsave(output_path, rgb_frames, format='GIF', fps=fps)
-            return os.path.exists(output_path) and os.path.getsize(output_path) > 0
-        except Exception as e:
-            logger.error(f"Failed to save GIF with imageio: {str(e)}")
-            
-            # Fallback: try saving with PIL
-            try:
-                pil_frames = [Image.fromarray(frame) for frame in rgb_frames]
-                pil_frames[0].save(
-                    output_path,
-                    save_all=True,
-                    append_images=pil_frames[1:],
-                    optimize=False,
-                    duration=int(1000/fps),
-                    loop=0
-                )
-                return os.path.exists(output_path) and os.path.getsize(output_path) > 0
-            except Exception as e2:
-                logger.error(f"Failed to save GIF with PIL: {str(e2)}")
-                return False
+        # Write GIF using imageio
+        imageio.mimsave(output_path, rgb_frames, format='GIF', fps=fps)
+        return os.path.exists(output_path) and os.path.getsize(output_path) > 0
         
     except Exception as e:
         logger.error(f"Error processing GIF: {str(e)}")

@@ -63,6 +63,9 @@ face_detection_cache = {}
 
 rotated_overlay_cache = {}
 
+# Dictionary to store active sessions
+active_sessions = {}
+
 def verify_permissions():
     logger.info(f"Current working directory: {os.getcwd()}")
     logger.info(f"Verifying permissions for directories...")
@@ -110,16 +113,14 @@ def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text("Send me a photo to get started!")
 
 def get_overlay_files(overlay_type):
-    """Get list of overlay files for given type"""
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    pattern = f"{overlay_type}_*.png"
-    overlay_files = glob.glob(os.path.join(base_path, pattern))
+    """Get all overlay files for a specific type"""
+    # Look for overlays directly in the root directory
+    overlay_files = glob.glob(f"{overlay_type}_*.png")
     
     if not overlay_files:
-        logger.error(f"No overlay files found matching pattern: {pattern}")
-        logger.error(f"Searched in directory: {base_path}")
-        return []
-        
+        logger.error(f"No overlay files found matching pattern: {overlay_type}_*.png")
+        logger.error(f"Searched in directory: {os.getcwd()}")
+    
     return overlay_files
 
 def get_cached_overlay(overlay_path):
@@ -157,25 +158,30 @@ def process_image(input_path, output_path, overlay_type, selected_overlay=None):
                 pixelated = cv2.resize(temp, (w_face, h_face), interpolation=cv2.INTER_NEAREST)
                 image[y:y+h, x:x+w] = pixelated
         else:
-            # If a specific overlay was provided (for GIFs), use it
+            # If a specific overlay was provided (for GIFs), use it for all faces
             if selected_overlay:
                 overlay_files = [selected_overlay]
+                use_same_overlay = True
             else:
-                # Otherwise get all overlays of this type
-                overlay_dir = os.path.join('overlays', overlay_type)
-                overlay_files = glob.glob(os.path.join(overlay_dir, f"{overlay_type}_*.png"))
+                # For static images, get all overlays of this type
+                overlay_files = get_overlay_files(overlay_type)
+                use_same_overlay = False
                 
             if not overlay_files:
-                logger.error(f"No overlay files found for {overlay_type}")
                 return False
                 
+            # For static images, we'll pick a random overlay for each face
+            # For GIFs, we'll use the provided overlay for all faces
             for face in faces:
                 x, y, w, h = face['rect']
                 angle = face.get('angle', 0)
                 
-                # For single images or if no specific overlay was provided, choose randomly
-                # For GIFs with a specific overlay, use the provided one
-                overlay_path = overlay_files[0] if selected_overlay else random.choice(overlay_files)
+                # For static images, choose a random overlay for each face
+                # For GIFs, use the pre-selected overlay for all faces
+                if use_same_overlay:
+                    overlay_path = overlay_files[0]
+                else:
+                    overlay_path = random.choice(overlay_files)
                 
                 overlay_img = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
                 if overlay_img is None:
@@ -366,51 +372,70 @@ def handle_message(update: Update, context: CallbackContext, photo=None) -> None
             'is_gif': False
         }
 
-        if message.animation:
-            input_path = get_file_path('downloads', id_prefix, session_id, 'gif')
-            file = message.animation.get_file()
-            file.download(input_path)
-            logger.info(f"Downloaded GIF to {input_path}")
+        # Check if this is a GIF
+        is_gif = False
+        file_id = None
+        
+        # Handle photos
+        if message.photo:
+            file_id = message.photo[-1].file_id
+        # Handle GIFs as documents
+        elif message.document and message.document.mime_type == 'image/gif':
+            file_id = message.document.file_id
+            is_gif = True
+        # Handle GIFs as animations
+        elif message.animation:
+            file_id = message.animation.file_id
+            is_gif = True
             
-            if not os.path.exists(input_path):
-                logger.error(f"Failed to download GIF to {input_path}")
-                return
-                
-            session_data['is_gif'] = True
-            session_data['input_path'] = input_path
-        elif message.photo:
-            input_path = get_file_path('downloads', id_prefix, session_id, 'original')
-            file = context.bot.get_file(message.photo[-1].file_id)
-            file.download(input_path)
-            logger.info(f"Downloaded photo to {input_path}")
-            session_data['input_path'] = input_path
+        if not file_id:
+            logger.error("No file_id found in message")
+            return
+            
+        # Download the file
+        file_extension = 'gif.jpg' if is_gif else 'original.jpg'
+        file_path = get_file_path('downloads', id_prefix, session_id, file_extension)
+        
+        file = context.bot.get_file(file_id)
+        file.download(file_path)
+        
+        if is_gif:
+            logger.info(f"Downloaded GIF to {file_path}")
+        else:
+            logger.info(f"Downloaded photo to {file_path}")
+            
+        # Store file path in session data
+        session_data['input_path'] = file_path
+        session_data['is_gif'] = is_gif
 
         # Store session data
         context.user_data[session_id] = session_data
         logger.debug(f"Created new session: {session_id}")
 
-        # Create keyboard
+        # Create keyboard with effect options
         keyboard = [
             [
-                InlineKeyboardButton("🎲 Pixelate", callback_data=f"{session_id}:pixelate"),
-                InlineKeyboardButton("🤡 Clown", callback_data=f"{session_id}:clown"),
-                InlineKeyboardButton("😎 Ray Liotta", callback_data=f"{session_id}:liotta")
+                InlineKeyboardButton("🧩 Pixelate", callback_data=f"pixelate:{session_id}"),
+                InlineKeyboardButton("🤡 Clown", callback_data=f"clown:{session_id}")
             ],
             [
-                InlineKeyboardButton("💀 Skull", callback_data=f"{session_id}:skull"),
-                InlineKeyboardButton("😺 Cat", callback_data=f"{session_id}:cat"),
-                InlineKeyboardButton("🐸 Pepe", callback_data=f"{session_id}:pepe")
+                InlineKeyboardButton("😎 Liotta", callback_data=f"liotta:{session_id}"),
+                InlineKeyboardButton("💀 Skull", callback_data=f"skull:{session_id}")
             ],
             [
-                InlineKeyboardButton("👨 Chad", callback_data=f"{session_id}:chad")
+                InlineKeyboardButton("🐱 Cat", callback_data=f"cat:{session_id}"),
+                InlineKeyboardButton("🐸 Pepe", callback_data=f"pepe:{session_id}")
             ],
             [
-                InlineKeyboardButton("❌ Close", callback_data=f"{session_id}:cancel")
+                InlineKeyboardButton("👨 Chad", callback_data=f"chad:{session_id}"),
+                InlineKeyboardButton("❌ Close", callback_data=f"close:{session_id}")
             ]
         ]
+        
         reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Send the keyboard
         message.reply_text('Choose an effect:', reply_markup=reply_markup)
-
     except Exception as e:
         logger.error(f"Error in handle_message: {str(e)}")
         logger.error(traceback.format_exc())
@@ -425,9 +450,22 @@ def error_handler(update: Update, context: CallbackContext) -> None:
     logger.error(f'Update "{update}" caused error "{context.error}"')
 
 def button_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    
     try:
-        query = update.callback_query
-        session_id, action = query.data.split(':')
+        # Parse the callback data
+        if ':' in query.data:
+            action, session_id = query.data.split(':')
+        else:
+            # Handle the old format for backward compatibility
+            for effect in ['pixelate', 'clown', 'liotta', 'skull', 'cat', 'pepe', 'chad', 'close']:
+                if query.data.startswith(f"{effect}_"):
+                    action = effect
+                    session_id = query.data[len(effect)+1:]
+                    break
+            else:
+                query.answer("Invalid action")
+                return
         
         # Only delete message if cancel is pressed
         if action == 'cancel':
@@ -566,6 +604,67 @@ def help_command(update: Update, context: CallbackContext) -> None:
     )
     update.message.reply_text(help_text)
 
+def handle_photo(update: Update, context: CallbackContext) -> None:
+    """Handle photos sent to the bot"""
+    # Check if this is a direct message or a group
+    chat_type = update.effective_chat.type
+    
+    # In groups, only respond to explicit /pixel commands as replies
+    if chat_type in ['group', 'supergroup']:
+        return
+    
+    # In direct messages, process automatically
+    process_media(update, context)
+
+def handle_pixel_command(update: Update, context: CallbackContext) -> None:
+    """Handle /pixel command - must be a reply to a photo/GIF in groups"""
+    try:
+        # Check if this is a reply to a message
+        if not update.message.reply_to_message:
+            update.message.reply_text("Please use this command as a reply to a photo or GIF.")
+            return
+        
+        # Check if the replied message contains a photo or document (GIF)
+        replied_msg = update.message.reply_to_message
+        
+        # Check for photos
+        has_photo = bool(replied_msg.photo)
+        
+        # Check for GIFs - they can be in document or animation field
+        has_gif = (replied_msg.document and 
+                  (replied_msg.document.mime_type == 'image/gif' or 
+                   replied_msg.document.file_name.lower().endswith('.gif'))) or bool(replied_msg.animation)
+        
+        if not (has_photo or has_gif):
+            # Send message without reply_to_message_id to avoid errors
+            update.message.chat.send_message("Please reply to a photo or GIF.")
+            return
+        
+        # Process the media from the replied message
+        process_media(update, context, replied_msg)
+        
+    except Exception as e:
+        logger.error(f"Error in handle_pixel_command: {str(e)}")
+        logger.error(traceback.format_exc())
+        # Send error message without reply_to_message_id
+        try:
+            update.message.chat.send_message("An error occurred while processing your request.")
+        except:
+            pass
+
+def process_media(update: Update, context: CallbackContext, replied_msg=None) -> None:
+    """Process media (photos or GIFs) and show the effect keyboard"""
+    try:
+        # Use either the replied message or the current message
+        message = replied_msg if replied_msg else update.message
+        
+        # Handle the message with our existing function
+        handle_message(update, context, photo=message)
+        
+    except Exception as e:
+        logger.error(f"Error in process_media: {str(e)}")
+        logger.error(traceback.format_exc())
+
 def main() -> None:
     try:
         # Kill any existing instances
@@ -603,7 +702,8 @@ def main() -> None:
             logger.error("No TELEGRAM_BOT_TOKEN found in environment")
             return
         token = TOKEN
-            
+        
+        # Initialize the updater with proper timeouts
         updater = Updater(
             token=token,
             use_context=True,
@@ -614,18 +714,29 @@ def main() -> None:
         )
         
         cleanup_before_start(updater.bot)
-        dispatcher = updater.dispatcher
-
+        
         # Register handlers
         logger.info("Registering handlers...")
+        dispatcher = updater.dispatcher
+        
+        # Command handlers
         dispatcher.add_handler(CommandHandler("start", start))
         dispatcher.add_handler(CommandHandler("help", help_command))
-        dispatcher.add_handler(CommandHandler("photo", photo_command))
-        dispatcher.add_handler(MessageHandler(Filters.photo | Filters.animation, handle_message))
+        dispatcher.add_handler(CommandHandler("pixel", handle_pixel_command))
+        
+        # Media handlers - photos and GIFs
+        dispatcher.add_handler(MessageHandler(Filters.photo, handle_photo))
+        dispatcher.add_handler(MessageHandler(Filters.document.category("image/gif") | 
+                                             Filters.animation, handle_photo))
+        
+        # Button callback handler
         dispatcher.add_handler(CallbackQueryHandler(button_callback))
         
-        logger.info("Starting bot in development mode...")
+        # Start the Bot
+        logger.info(f"Starting bot in {env} mode...")
         updater.start_polling()
+        
+        # Run the bot until the user presses Ctrl-C
         updater.idle()
         
     except Exception as e:
@@ -634,3 +745,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
