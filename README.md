@@ -11,8 +11,6 @@ A Telegram bot that replaces faces with pixels, skull of satoshi, liotta faces, 
 <img width="300" alt="Screenshot 2023-12-07 at 12 48 05" src=https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/1d9a3f17-f87e-4cf7-9cf6-8541bb4bc0e5">
 <img width="300" alt="Screenshot 2023-12-07 at 12 48 05" src=https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/7b7ad461-dd32-418f-9da4-f66426d1284c">
 <img width="300" alt="Screenshot 2023-12-07 at 12 48 05" src=https://github.com/arbadacarbaYK/Pixelbot/assets/63317640/c8460426-f31e-4968-957c-269ecb970a54">
-
-<img width="300" alt="Screenshot 2023-12-07 at 12 48 05" src="https://github.com/user-attachments/assets/cce5c579-3b84-4956-b343-1e9d09349982">
 <img width="300" alt="Screenshot 2023-12-07 at 12 48 05" src="https://github.com/user-attachments/assets/b40e1f7a-b61f-4b00-9b9d-f947ace95e5a">
 
 
