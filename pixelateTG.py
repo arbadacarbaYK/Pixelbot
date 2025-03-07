@@ -21,11 +21,10 @@ import logging.handlers
 from gif_processor import process_telegram_gif
 from constants import PIXELATION_FACTOR, detect_heads
 from gif_processor import GifProcessor
-
 # Configure DNS settings
 socket.setdefaulttimeout(20)
 urllib3.disable_warnings()
-
+        
 # Configure logging
 logging.basicConfig(
     filename='pixelbot_debug.log',
