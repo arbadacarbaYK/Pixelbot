@@ -2,6 +2,6 @@ opencv-python-headless==4.11.0.86
 python-telegram-bot==13.7
 python-dotenv==1.0.0
 imageio==2.34.1
-numpy==1.21.6
+numpy==1.22.0
 psutil>=5.8.0
 urllib3>=1.26.0,<2.0.0
