@@ -455,14 +455,23 @@ def handle_message(update: Update, context: CallbackContext, photo=None) -> None
     try:
         message = photo if photo else update.message
         chat_id = message.chat_id
+        chat_type = message.chat.type
         session_id = str(uuid4())
         id_prefix = f"user_{chat_id}"
+
+        # In groups, only process messages that are replies with /pixel command
+        if chat_type in ['group', 'supergroup']:
+            # If this is not a command-triggered call, ignore
+            if not photo:  # photo parameter is None for natural message flow
+                return
             
         session_data = {
             'chat_id': chat_id,
             'id_prefix': id_prefix,
             'session_id': session_id,
-            'is_gif': False
+            'is_gif': False,
+            'chat_type': chat_type,  # Store chat type for later use
+            'original_message_id': message.message_id  # Store original message ID for reference
         }
 
         # Handle animations (GIFs)
@@ -529,11 +538,14 @@ def handle_message(update: Update, context: CallbackContext, photo=None) -> None
             ],
             [
                 InlineKeyboardButton("👨 Chad", callback_data=f"{session_id}:chad")
-            ],
-            [
-                InlineKeyboardButton("❌ Close", callback_data=f"{session_id}:cancel")
             ]
         ])
+
+        # Add cancel button with special group handling
+        if chat_type in ['group', 'supergroup']:
+            keyboard.append([InlineKeyboardButton("❌ Cancel (Anyone)", callback_data=f"{session_id}:cancel_group")])
+        else:
+            keyboard.append([InlineKeyboardButton("❌ Close", callback_data=f"{session_id}:cancel")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         message.reply_text('Choose an effect:', reply_markup=reply_markup)
@@ -562,6 +574,12 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         
         # Handle navigation actions first
         if action == 'cancel':
+            # In DMs, only the original sender can cancel
+            if query.message.chat.type == 'private':
+                query.message.delete()
+            return
+        elif action == 'cancel_group':
+            # In groups, anyone can cancel
             query.message.delete()
             return
         elif action == 'back':
@@ -705,21 +723,50 @@ def get_rotated_overlay(overlay_img, angle, size):
     return rotated
 
 def photo_command(update: Update, context: CallbackContext) -> None:
-    # Check if this is a reply to a photo
-    if not update.message.reply_to_message or not update.message.reply_to_message.photo:
+    """Handle /pixel command when used as a reply to a photo or GIF"""
+    message = update.message
+    
+    # Check if this is a reply to a message
+    if not message.reply_to_message:
+        if message.chat.type in ['group', 'supergroup']:
+            message.reply_text("Please use this command as a reply to a photo or GIF!")
         return
-    # Process the replied-to photo
-    handle_message(update, context, photo=update.message.reply_to_message)
+        
+    replied_msg = message.reply_to_message
+    
+    # Check if the replied message contains a photo or GIF
+    if replied_msg.photo:
+        handle_message(update, context, photo=replied_msg)
+    elif replied_msg.animation or (replied_msg.document and 
+          replied_msg.document.mime_type in ['image/gif', 'video/mp4']):
+        handle_message(update, context, photo=replied_msg)
+    else:
+        if message.chat.type in ['group', 'supergroup']:
+            message.reply_text("Please reply to a photo or GIF with this command!")
 
 def help_command(update: Update, context: CallbackContext) -> None:
     """Send a message when the command /help is issued."""
-    help_text = (
-        "Send me a photo or GIF with faces, and I'll pixelate them or add fun overlays!\n\n"
-        "Commands:\n"
-        "/start - Start the bot\n"
-        "/help - Show this help message\n\n"
-        "Just send a photo or GIF with faces, and I'll process it!"
-    )
+    chat_type = update.message.chat.type
+    
+    if chat_type in ['group', 'supergroup']:
+        help_text = (
+            "To use this bot in groups:\n"
+            "1. Reply to any photo or GIF with /pixel\n"
+            "2. Choose an effect from the menu\n"
+            "3. Anyone in the group can cancel the effect menu\n\n"
+            "Commands:\n"
+            "/pixel - Reply to a photo/GIF with this command\n"
+            "/help - Show this help message"
+        )
+    else:
+        help_text = (
+            "In private chats:\n"
+            "Just send me a photo or GIF with faces, and I'll pixelate them or add fun overlays!\n\n"
+            "Commands:\n"
+            "/start - Start the bot\n"
+            "/help - Show this help message\n\n"
+            "Just send a photo or GIF with faces, and I'll process it!"
+        )
     update.message.reply_text(help_text)
 
 def main() -> None:
@@ -785,9 +832,9 @@ def main() -> None:
         # Add handlers
         dispatcher.add_handler(CommandHandler("start", start))
         dispatcher.add_handler(CommandHandler("help", help_command))
-        dispatcher.add_handler(CommandHandler("photo", photo_command))
+        dispatcher.add_handler(CommandHandler("pixel", photo_command))  # Changed from "photo" to "pixel"
         
-        # Add media handlers
+        # Add media handlers - these will only work in private chats due to handle_message logic
         dispatcher.add_handler(MessageHandler(Filters.photo, handle_message))
         dispatcher.add_handler(MessageHandler(gif_filter, handle_message))
         
