@@ -21,10 +21,11 @@ import logging.handlers
 from gif_processor import process_telegram_gif
 from constants import PIXELATION_FACTOR, detect_heads
 from gif_processor import GifProcessor
+from keyboard import get_main_keyboard, get_pixelation_keyboard, get_full_pixelation_keyboard
 # Configure DNS settings
 socket.setdefaulttimeout(20)
 urllib3.disable_warnings()
-        
+
 # Configure logging
 logging.basicConfig(
     filename='pixelbot_debug.log',
@@ -44,6 +45,15 @@ MAX_THREADS = 15
 RESIZE_FACTOR = 2.0
 executor = ThreadPoolExecutor(max_workers=MAX_THREADS)
 
+# Full pixelation levels
+FULL_PIXELATION_LEVELS = {
+    'very_fine': 0.2,
+    'fine': 0.15,
+    'rough': 0.09,
+    'very_rough': 0.08,
+    'distorted': 0.06
+}
+
 # Cache for overlay files
 overlay_cache = {}
 
@@ -61,9 +71,6 @@ overlay_adjustments = {
 face_detection_cache = {}
 
 rotated_overlay_cache = {}
-
-# Dictionary to store active sessions
-active_sessions = {}
 
 def verify_permissions():
     logger.info(f"Current working directory: {os.getcwd()}")
@@ -136,116 +143,110 @@ def get_id_prefix(update):
     """Generate a consistent ID prefix for a user"""
     return f"user_{update.effective_user.id}"
 
-def process_image(photo_path, output_path, effect_type, selected_overlay=None, faces=None):
+def process_full_image(input_path: str, output_path: str, pixelation_factor: float) -> bool:
+    """Process the entire image with pixelation"""
     try:
-        image = cv2.imread(photo_path)
+        image = cv2.imread(input_path)
         if image is None:
-            logger.error(f"Failed to read image: {photo_path}")
+            logger.error("Failed to read image")
+            return False
+        
+        h, w = image.shape[:2]
+        small = cv2.resize(image, (int(w * pixelation_factor), int(h * pixelation_factor)), 
+                          interpolation=cv2.INTER_LINEAR)
+        pixelated = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
+        
+        cv2.imwrite(output_path, pixelated)
+        return True
+    except Exception as e:
+        logger.error(f"Error processing full image: {str(e)}")
+        return False
+
+def process_image(input_path, output_path, overlay_type, selected_overlay=None):
+    try:
+        image = cv2.imread(input_path)
+        if image is None:
             return False
             
-        height, width = image.shape[:2]
-        
-        if faces is None:
-            faces = detect_heads(image)
-        
-        output = image.copy()
-        
-        # Ensure an overlay is selected if effect_type is not 'pixelate'
-        if effect_type != 'pixelate' and not selected_overlay:
-            overlay_files = glob.glob(f"{effect_type}_*.png")
-            if overlay_files:
-                selected_overlay = random.choice(overlay_files)
-                logger.info(f"Selected overlay: {selected_overlay}")
-            else:
-                logger.error("No overlay files found for the selected effect type.")
-                return False
-        
-        for face in faces:
-            x, y, w, h = face['rect']
-            angle = face['angle']
+        faces = detect_heads(image)
+        if not faces:
+            return False
             
-            if effect_type == 'pixelate':
-                face_roi = image[y:y+h, x:x+w]
-                small = cv2.resize(face_roi, (0, 0), fx=1.0/PIXELATION_FACTOR, fy=1.0/PIXELATION_FACTOR)
-                pixelated_face = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
-                output[y:y+h, x:x+w] = pixelated_face
+        if overlay_type == 'pixelate':
+            for face in faces:
+                x, y, w, h = face['rect']
+                face_region = image[y:y+h, x:x+w]
+                h_face, w_face = face_region.shape[:2]
+                w_small = int(w_face * PIXELATION_FACTOR)
+                h_small = int(h_face * PIXELATION_FACTOR)
+                temp = cv2.resize(face_region, (w_small, h_small), interpolation=cv2.INTER_LINEAR)
+                pixelated = cv2.resize(temp, (w_face, h_face), interpolation=cv2.INTER_NEAREST)
+                image[y:y+h, x:x+w] = pixelated
+        elif overlay_type.startswith('full_'):
+            # Handle full pixelation
+            factor = float(overlay_type.split('_')[1])
+            h, w = image.shape[:2]
+            small = cv2.resize(image, (int(w * factor), int(h * factor)), 
+                             interpolation=cv2.INTER_LINEAR)
+            image = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
+        else:
+            # If a specific overlay was provided (for GIFs), use it for all faces
+            if selected_overlay:
+                overlay_files = [selected_overlay]
+                use_same_overlay = True
             else:
-                overlay_img = cv2.imread(selected_overlay, cv2.IMREAD_UNCHANGED)
+                # For static images, get all overlays of this type
+                overlay_files = get_overlay_files(overlay_type)
+                use_same_overlay = False
+                
+            if not overlay_files:
+                return False
+                
+            # For static images, we'll pick a random overlay for each face
+            # For GIFs, we'll use the provided overlay for all faces
+            for face in faces:
+                x, y, w, h = face['rect']
+                angle = face.get('angle', 0)
+                
+                # For static images, choose a random overlay for each face
+                # For GIFs, use the pre-selected overlay for all faces
+                if use_same_overlay:
+                    overlay_path = overlay_files[0]
+                else:
+                    overlay_path = random.choice(overlay_files)
+                
+                overlay_img = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
                 if overlay_img is None:
-                    logger.error(f"Failed to read overlay: {selected_overlay}")
                     continue
+                    
+                adjustment = overlay_adjustments.get(overlay_type, {'x_offset': 0, 'y_offset': 0, 'size_factor': 1.0})
+                overlay_width = int(w * adjustment['size_factor'])
+                overlay_height = int(overlay_width * overlay_img.shape[0] / overlay_img.shape[1])
                 
-                adjust = overlay_adjustments.get(effect_type, {'x_offset': 0, 'y_offset': 0, 'size_factor': 1.0})
+                x_pos = max(0, min(image.shape[1] - overlay_width, x + int(w * adjustment['x_offset'])))
+                y_pos = max(0, min(image.shape[0] - overlay_height, y + int(h * adjustment['y_offset'])))
                 
-                overlay_width = int(w * adjust['size_factor'])
-                overlay_height = int(h * adjust['size_factor'])
-                x_pos = int(x + w * adjust['x_offset'])
-                y_pos = int(y + h * adjust['y_offset'])
+                # Ensure overlay fits within image bounds
+                overlay_width = min(overlay_width, image.shape[1] - x_pos)
+                overlay_height = min(overlay_height, image.shape[0] - y_pos)
                 
                 overlay_resized = cv2.resize(overlay_img, (overlay_width, overlay_height))
                 
-                center = (overlay_width // 2, overlay_height // 2)
-                M = cv2.getRotationMatrix2D(center, angle, 1.0)
-                rotated_overlay = cv2.warpAffine(overlay_resized, M, (overlay_width, overlay_height))
+                # Apply overlay with proper shape matching
+                alpha = overlay_resized[:, :, 3] / 255.0
+                alpha = np.expand_dims(alpha, axis=-1)
                 
-                roi_x = max(0, x_pos)
-                roi_y = max(0, y_pos)
-                roi_w = min(overlay_width, width - roi_x)
-                roi_h = min(overlay_height, height - roi_y)
-                
-                if roi_w <= 0 or roi_h <= 0:
-                    continue
-                
-                roi = output[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w]
-                overlay_roi = rotated_overlay[0:roi_h, 0:roi_w]
-                
-                if overlay_roi.shape[2] == 4:
-                    alpha = overlay_roi[:, :, 3] / 255.0
-                    for c in range(3):
-                        roi[:, :, c] = roi[:, :, c] * (1 - alpha) + overlay_roi[:, :, c] * alpha
-                else:
-                    output[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w] = overlay_roi
-        
-        cv2.imwrite(output_path, output)
+                for c in range(3):
+                    image[y_pos:y_pos+overlay_height, x_pos:x_pos+overlay_width, c] = \
+                        image[y_pos:y_pos+overlay_height, x_pos:x_pos+overlay_width, c] * (1 - alpha[:,:,0]) + \
+                        overlay_resized[:, :, c] * alpha[:,:,0]
+                        
+        cv2.imwrite(output_path, image)
         return True
-        
     except Exception as e:
-        logger.error(f"Error processing image: {str(e)}")
+        logger.error(f"Error in process_image: {str(e)}")
         logger.error(traceback.format_exc())
         return False
-
-def apply_overlay_to_image(image, overlay, x, y):
-    """Apply an overlay to an image at the specified position"""
-    try:
-        h, w = overlay.shape[:2]
-        img_h, img_w = image.shape[:2]
-        
-        # Calculate the region where the overlay will be placed
-        roi_x = max(0, x)
-        roi_y = max(0, y)
-        roi_w = min(w, img_w - roi_x)
-        roi_h = min(h, img_h - roi_y)
-        
-        if roi_w <= 0 or roi_h <= 0:
-            return
-        
-        # Get the region of interest in the image
-        roi = image[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w]
-        
-        # Get the region of the overlay to use
-        overlay_roi = overlay[0:roi_h, 0:roi_w]
-        
-        # Apply the overlay with alpha blending if it has an alpha channel
-        if overlay_roi.shape[2] == 4:  # With alpha channel
-            alpha = overlay_roi[:, :, 3] / 255.0
-            for c in range(3):  # Apply for each color channel
-                roi[:, :, c] = roi[:, :, c] * (1 - alpha) + overlay_roi[:, :, c] * alpha
-        else:  # No alpha channel
-            image[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w] = overlay_roi
-            
-    except Exception as e:
-        logger.error(f"Error applying overlay: {str(e)}")
-        logger.error(traceback.format_exc())
 
 def get_random_overlay_file(overlay_type):
     try:
@@ -378,9 +379,9 @@ def process_gif(gif_path, session_id, id_prefix, bot, action):
             if os.path.getsize(processed_gif_path) > 0:
                 logger.info(f"Successfully processed GIF: {processed_gif_path}")
                 return processed_gif_path
-            else:
-                logger.error(f"Processed GIF file is empty: {processed_gif_path}")
-        
+            logger.error(f"Processed GIF file is empty: {processed_gif_path}")
+            return None
+            
         logger.error("Failed to process GIF")
         return None
             
@@ -389,15 +390,74 @@ def process_gif(gif_path, session_id, id_prefix, bot, action):
         logger.error(traceback.format_exc())
         return None
 
+async def handle_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    await query.answer()
+    
+    # Split the callback data to get session_id and action
+    session_id, action = query.data.split(':')
+    
+    if action == 'pixelate':
+        keyboard = get_pixelation_keyboard(session_id)
+        await query.edit_message_reply_markup(reply_markup=keyboard)
+        return
+    
+    if action == 'full_pixelate':
+        keyboard = get_full_pixelation_keyboard(session_id)
+        await query.edit_message_reply_markup(reply_markup=keyboard)
+        return
+        
+    if action == 'back':
+        keyboard = get_main_keyboard(session_id)
+        await query.edit_message_reply_markup(reply_markup=keyboard)
+        return
+        
+    # Get user data
+    user_id = update.effective_user.id
+    user_data = context.user_data.get(user_id, {})
+    
+    if query.data.startswith('full_'):
+        if not user_data.get('photo_path'):
+            await query.message.reply_text("Please send a photo first!")
+            return
+            
+        factor = float(query.data.split('_')[1])
+        output_path = f"{user_data['photo_path']}_processed.jpg"
+        
+        success = process_full_image(user_data['photo_path'], output_path, factor)
+        if success:
+            with open(output_path, 'rb') as photo:
+                keyboard = get_full_pixelation_keyboard(session_id)
+                await query.message.reply_photo(photo=photo, reply_markup=keyboard)
+        else:
+            await query.message.reply_text("Sorry, I couldn't process that image.")
+        return
+        
+    # Handle other overlay types (pixelate, clown, etc.)
+    if not user_data.get('photo_path'):
+        await query.message.reply_text("Please send a photo first!")
+        return
+        
+    output_path = f"{user_data['photo_path']}_processed.jpg"
+    success = process_image(user_data['photo_path'], output_path, query.data)
+    
+    if success:
+        with open(output_path, 'rb') as photo:
+            # Keep the same keyboard for pixelation options
+            keyboard = None
+            if query.data.startswith('pixelate_'):
+                keyboard = get_pixelation_keyboard(session_id)
+            await query.message.reply_photo(photo=photo, reply_markup=keyboard)
+    else:
+        await query.message.reply_text("Sorry, I couldn't process that image.")
+
 def handle_message(update: Update, context: CallbackContext, photo=None) -> None:
     try:
-        logger.debug("Function called")
         message = photo if photo else update.message
         chat_id = message.chat_id
-        
         session_id = str(uuid4())
         id_prefix = f"user_{chat_id}"
-
+            
         session_data = {
             'chat_id': chat_id,
             'id_prefix': id_prefix,
@@ -405,67 +465,86 @@ def handle_message(update: Update, context: CallbackContext, photo=None) -> None
             'is_gif': False
         }
 
-        # Check if this is a GIF
-        is_gif = False
-        file_id = None
-        
+        # Handle animations (GIFs)
+        if message.animation or (message.document and message.document.mime_type in ['image/gif', 'video/mp4']):
+            is_gif = True
+            if message.animation:
+                file = message.animation.get_file()
+                logger.debug("Processing animation")
+            else:
+                file = message.document.get_file()
+                logger.debug(f"Processing document with mime type: {message.document.mime_type}")
+
+            # Always save with .gif extension for GIF processor
+            input_path = get_file_path('downloads', id_prefix, session_id, 'animation.gif')
+            file.download(input_path)
+            logger.info(f"Downloaded GIF/Animation to {input_path}")
+            
+            if not os.path.exists(input_path):
+                logger.error(f"Failed to download GIF to {input_path}")
+                message.reply_text("Sorry, I couldn't download that GIF. Please try again!")
+                return
+                
+            session_data['is_gif'] = True
+            session_data['input_path'] = input_path
+
         # Handle photos
-        if message.photo:
-            file_id = message.photo[-1].file_id
-        # Handle GIFs as documents
-        elif message.document and message.document.mime_type == 'image/gif':
-            file_id = message.document.file_id
-            is_gif = True
-        # Handle GIFs as animations
-        elif message.animation:
-            file_id = message.animation.file_id
-            is_gif = True
-            
-        if not file_id:
+        elif message.photo:
+            input_path = get_file_path('downloads', id_prefix, session_id, 'original.jpg')
+            file = context.bot.get_file(message.photo[-1].file_id)
+            file.download(input_path)
+            logger.info(f"Downloaded photo to {input_path}")
+            session_data['input_path'] = input_path
+            session_data['photo_path'] = input_path  # Store photo path for full pixelation
+        else:
+            message.reply_text("Please send me a photo or GIF!")
             return
-            
-        # Download the file
-        file_extension = 'gif.jpg' if is_gif else 'original.jpg'
-        file_path = get_file_path('downloads', id_prefix, session_id, file_extension)
-        
-        file = context.bot.get_file(file_id)
-        file.download(file_path)
-        logger.info(f"Downloaded {'GIF' if is_gif else 'photo'} to {file_path}")
-        
+
         # Store session data
-        session_data['input_path'] = file_path
-        session_data['is_gif'] = is_gif
-        context.user_data[session_id] = session_data
+        if 'sessions' not in context.user_data:
+            context.user_data['sessions'] = {}
+        context.user_data['sessions'][session_id] = session_data
         logger.debug(f"Created new session: {session_id}")
         
-        # Create keyboard with effect options
+        # Create keyboard - show full pixelation only for photos, not GIFs
         keyboard = [
             [
-                InlineKeyboardButton("🧩 Pixelate", callback_data=f"pixelate:{session_id}")
-            ],
-            [
-                InlineKeyboardButton("🤡 Clown", callback_data=f"clown:{session_id}"),
-                InlineKeyboardButton("😎 Liotta", callback_data=f"liotta:{session_id}"),
-                InlineKeyboardButton("💀 Skull", callback_data=f"skull:{session_id}")
-            ],
-            [
-                InlineKeyboardButton("🐱 Cat", callback_data=f"cat:{session_id}"),
-                InlineKeyboardButton("🐸 Pepe", callback_data=f"pepe:{session_id}"),
-                InlineKeyboardButton("👨 Chad", callback_data=f"chad:{session_id}")
-            ],
-            [
-                InlineKeyboardButton("❌ Close", callback_data=f"close:{session_id}")
+                InlineKeyboardButton("⚔️ Pixelate", callback_data=f"{session_id}:pixelate"),
             ]
         ]
         
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        # Only add full pixelation for photos, not GIFs
+        if not session_data['is_gif']:
+            keyboard[0].append(InlineKeyboardButton("✂️ Full Pixelate", callback_data=f"{session_id}:full_pixelate"))
+            
+        keyboard.extend([
+            [
+                InlineKeyboardButton("🤡 Clown", callback_data=f"{session_id}:clown"),
+                InlineKeyboardButton("😎 Ray Liotta", callback_data=f"{session_id}:liotta")
+            ],
+            [
+                InlineKeyboardButton("💀 Skull", callback_data=f"{session_id}:skull"),
+                InlineKeyboardButton("😺 Cat", callback_data=f"{session_id}:cat"),
+                InlineKeyboardButton("🐸 Pepe", callback_data=f"{session_id}:pepe")
+            ],
+            [
+                InlineKeyboardButton("👨 Chad", callback_data=f"{session_id}:chad")
+            ],
+            [
+                InlineKeyboardButton("❌ Close", callback_data=f"{session_id}:cancel")
+            ]
+        ])
         
-        # Send the keyboard
+        reply_markup = InlineKeyboardMarkup(keyboard)
         message.reply_text('Choose an effect:', reply_markup=reply_markup)
         
     except Exception as e:
         logger.error(f"Error in handle_message: {str(e)}")
         logger.error(traceback.format_exc())
+        try:
+            message.reply_text("Sorry, something went wrong. Please try again!")
+        except:
+            pass
 
 def cleanup_before_start(bot):
     """Clean up before starting the bot"""
@@ -477,118 +556,114 @@ def error_handler(update: Update, context: CallbackContext) -> None:
     logger.error(f'Update "{update}" caused error "{context.error}"')
 
 def button_callback(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    
     try:
-        # Parse the callback data
-        if ':' in query.data:
-            action, session_id = query.data.split(':')
-        else:
-            # Handle the old format for backward compatibility
-            for effect in ['pixelate', 'clown', 'liotta', 'skull', 'cat', 'pepe', 'chad', 'close']:
-                if query.data.startswith(f"{effect}_"):
-                    action = effect
-                    session_id = query.data[len(effect)+1:]
-                    break
-            else:
-                query.answer("Invalid action")
-                return
+        query = update.callback_query
+        session_id, action = query.data.split(':')
         
-        # Handle close action separately
-        if action == 'close':
-            # Simply delete the message with the keyboard
-            query.delete_message()
+        # Handle navigation actions first
+        if action == 'cancel':
+            query.message.delete()
+            return
+        elif action == 'back':
+            keyboard = get_main_keyboard(session_id)
+            query.edit_message_reply_markup(reply_markup=keyboard)
             return
             
-        # Get session data
-        session_data = context.user_data.get(session_id)
+        # Get session data from the sessions dictionary
+        if 'sessions' not in context.user_data:
+            logger.error(f"No sessions found in user_data")
+            query.edit_message_text(text="Session expired, please send a new photo!")
+            return
+            
+        session_data = context.user_data['sessions'].get(session_id)
         if not session_data:
-            logger.error(f"No session data found for {action}")
-            query.answer("Session expired, please try again")
-            return
-        
-        # Process the image with the selected effect
-        chat_id = session_data.get('chat_id')
-        input_path = session_data.get('input_path')
-        is_gif = session_data.get('is_gif', False)
-        id_prefix = session_data.get('id_prefix')
-        
-        if not input_path or not os.path.exists(input_path):
-            logger.error(f"Input file not found: {input_path}")
-            query.answer("Original file not found, please send a new one")
+            logger.error(f"No session data found for {session_id}")
+            query.edit_message_text(text="Session expired, please send a new photo!")
             return
             
-        # Show processing message
-        query.answer(f"Processing with {action} effect...")
-        query.edit_message_text(f"Processing with {action} effect...")
-        
-        # Process the image
-        if is_gif:
-            # Process GIF
-            output_path = process_gif(input_path, session_id, id_prefix, context.bot, action)
+        input_path = session_data['input_path']
+        if not os.path.exists(input_path):
+            logger.error(f"Input file not found: {input_path}")
+            query.edit_message_text(text="Original photo not found, please send a new one!")
+            return
+
+        # Handle GIF processing
+        if session_data.get('is_gif'):
+            output_path = process_gif(
+                session_data['input_path'],
+                session_id,
+                session_data['id_prefix'],
+                context.bot,
+                action=action  # Pass the selected action
+            )
+            
             if output_path and os.path.exists(output_path):
-                # Send the processed GIF without caption
                 with open(output_path, 'rb') as f:
                     context.bot.send_animation(
-                        chat_id=chat_id,
-                        animation=f
+                        chat_id=session_data['chat_id'],
+                        animation=f,
+                        reply_to_message_id=query.message.message_id
                     )
-                # Clean up
-                os.remove(output_path)
-                logger.debug(f"Cleaned up {output_path}")
             else:
-                context.bot.send_message(
-                    chat_id=chat_id,
-                    text="Failed to process GIF. Please try again."
-                )
-        else:
-            # Process photo
-            output_path = get_file_path('processed', id_prefix, session_id, action)
-            if process_image(input_path, output_path, action):
-                # Send the processed photo without caption
-                with open(output_path, 'rb') as f:
-                    context.bot.send_photo(
-                        chat_id=chat_id,
-                        photo=f
-                    )
-                # Clean up
-                os.remove(output_path)
-            else:
-                context.bot.send_message(
-                    chat_id=chat_id,
-                    text="Failed to process image. Please try again."
-                )
+                query.answer("Failed to process GIF!")
+                return
                 
-        # Restore the keyboard after processing
-        keyboard = [
-            [
-                InlineKeyboardButton("🧩 Pixelate", callback_data=f"pixelate:{session_id}")
-            ],
-            [
-                InlineKeyboardButton("🤡 Clown", callback_data=f"clown:{session_id}"),
-                InlineKeyboardButton("😎 Liotta", callback_data=f"liotta:{session_id}"),
-                InlineKeyboardButton("💀 Skull", callback_data=f"skull:{session_id}")
-            ],
-            [
-                InlineKeyboardButton("🐱 Cat", callback_data=f"cat:{session_id}"),
-                InlineKeyboardButton("🐸 Pepe", callback_data=f"pepe:{session_id}"),
-                InlineKeyboardButton("👨 Chad", callback_data=f"chad:{session_id}")
-            ],
-            [
-                InlineKeyboardButton("❌ Close", callback_data=f"close:{session_id}")
-            ]
-        ]
+        # Handle Photo processing
+        else:
+            output_path = get_file_path('processed', session_data['id_prefix'], session_id, action)
+            logger.debug(f"Processing from {input_path} to {output_path}")
+            
+            success = False
+            if action == 'pixelate':
+                logger.debug("Starting pixelation...")
+                success = process_image(input_path, output_path, 'pixelate')
+            elif action == 'full_pixelate':
+                # Show full pixelation keyboard
+                keyboard = get_full_pixelation_keyboard(session_id)
+                query.edit_message_reply_markup(reply_markup=keyboard)
+                return
+            elif action.startswith('full_'):
+                # Handle full pixelation with specific factor
+                factor = float(action.split('_')[1])
+                success = process_full_image(input_path, output_path, factor)
+            elif action in ['clown', 'liotta', 'skull', 'cat', 'pepe', 'chad']:
+                logger.debug(f"Starting {action} overlay...")
+                success = process_image(input_path, output_path, action)
+            
+            if success:
+                with open(output_path, 'rb') as f:
+                    # Keep the same keyboard for pixelation options
+                    keyboard = None
+                    if action.startswith('pixelate_'):
+                        keyboard = get_pixelation_keyboard(session_id)
+                    elif action.startswith('full_'):
+                        keyboard = get_full_pixelation_keyboard(session_id)
+                    context.bot.send_photo(
+                        chat_id=session_data['chat_id'],
+                        photo=f,
+                        reply_to_message_id=query.message.message_id,
+                        reply_markup=keyboard
+                    )
+            else:
+                query.answer(f"Failed to process {action}!")
+                return
+
+        # Just acknowledge the button press
+        query.answer()
         
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_text('Choose an effect:', reply_markup=reply_markup)
-        
-    except Exception as e:
-        logger.error(f"Error in button_callback: {str(e)}")
-        logger.error(traceback.format_exc())
+        # Cleanup processed file
         try:
-            query.answer("An error occurred")
-        except:
-            pass
+            os.remove(output_path)
+            logger.debug(f"Cleaned up {output_path}")
+        except Exception as e:
+            logger.warning(f"Failed to cleanup {output_path}: {e}")
+            
+    except Exception as e:
+        logger.error(f'Error in button callback: {str(e)}')
+        logger.error(traceback.format_exc())
+        if query:
+            query.answer("Sorry, there was an error processing your request")
+        cleanup_temp_files()
 
 def get_last_update_id() -> int:
     try:
@@ -647,67 +722,6 @@ def help_command(update: Update, context: CallbackContext) -> None:
     )
     update.message.reply_text(help_text)
 
-def handle_photo(update: Update, context: CallbackContext) -> None:
-    """Handle photos sent to the bot"""
-    # Check if this is a direct message or a group
-    chat_type = update.effective_chat.type
-    
-    # In groups, only respond to explicit /pixel commands as replies
-    if chat_type in ['group', 'supergroup']:
-        return
-    
-    # In direct messages, process automatically
-    process_media(update, context)
-
-def handle_pixel_command(update: Update, context: CallbackContext) -> None:
-    """Handle /pixel command - must be a reply to a photo/GIF in groups"""
-    try:
-        # Check if this is a reply to a message
-        if not update.message.reply_to_message:
-            update.message.reply_text("Please use this command as a reply to a photo or GIF.")
-            return
-        
-        # Check if the replied message contains a photo or document (GIF)
-        replied_msg = update.message.reply_to_message
-        
-        # Check for photos
-        has_photo = bool(replied_msg.photo)
-        
-        # Check for GIFs - they can be in document or animation field
-        has_gif = (replied_msg.document and 
-                  (replied_msg.document.mime_type == 'image/gif' or 
-                   replied_msg.document.file_name.lower().endswith('.gif'))) or bool(replied_msg.animation)
-        
-        if not (has_photo or has_gif):
-            # Send message without reply_to_message_id to avoid errors
-            update.message.chat.send_message("Please reply to a photo or GIF.")
-            return
-        
-        # Process the media from the replied message
-        process_media(update, context, replied_msg)
-        
-    except Exception as e:
-        logger.error(f"Error in handle_pixel_command: {str(e)}")
-        logger.error(traceback.format_exc())
-        # Send error message without reply_to_message_id
-        try:
-            update.message.chat.send_message("An error occurred while processing your request.")
-        except:
-            pass
-
-def process_media(update: Update, context: CallbackContext, replied_msg=None) -> None:
-    """Process media (photos or GIFs) and show the effect keyboard"""
-    try:
-        # Use either the replied message or the current message
-        message = replied_msg if replied_msg else update.message
-        
-        # Handle the message with our existing function
-        handle_message(update, context, photo=message)
-        
-    except Exception as e:
-        logger.error(f"Error in process_media: {str(e)}")
-        logger.error(traceback.format_exc())
-
 def main() -> None:
     try:
         # Kill any existing instances
@@ -746,7 +760,6 @@ def main() -> None:
             return
         token = TOKEN
         
-        # Initialize the updater with proper timeouts
         updater = Updater(
             token=token,
             use_context=True,
@@ -757,38 +770,35 @@ def main() -> None:
         )
         
         cleanup_before_start(updater.bot)
+        dispatcher = updater.dispatcher
         
         # Register handlers
         logger.info("Registering handlers...")
-        dispatcher = updater.dispatcher
         
-        # Register error handler
-        dispatcher.add_error_handler(error_handler)
+        # Create a combined filter for all GIF types
+        gif_filter = (
+            Filters.animation |
+            (Filters.document.mime_type("image/gif") |
+             Filters.document.mime_type("video/mp4"))
+        )
         
-        # Command handlers - register pixel command with explicit filters for ALL chat types
-        dispatcher.add_handler(CommandHandler(
-            "pixel", 
-            handle_pixel_command,
-            filters=Filters.command & (Filters.chat_type.groups | Filters.chat_type.private)
-        ))
-        
-        # Other command handlers
+        # Add handlers
         dispatcher.add_handler(CommandHandler("start", start))
         dispatcher.add_handler(CommandHandler("help", help_command))
+        dispatcher.add_handler(CommandHandler("photo", photo_command))
         
-        # Media handlers - photos and GIFs
-        dispatcher.add_handler(MessageHandler(Filters.photo, handle_photo))
-        dispatcher.add_handler(MessageHandler(Filters.document.category("image/gif") | 
-                                            Filters.animation, handle_photo))
+        # Add media handlers
+        dispatcher.add_handler(MessageHandler(Filters.photo, handle_message))
+        dispatcher.add_handler(MessageHandler(gif_filter, handle_message))
         
-        # Button callback handler
+        # Add callback handler
         dispatcher.add_handler(CallbackQueryHandler(button_callback))
         
-        # Start the Bot with clean state
+        # Add error handler
+        dispatcher.add_error_handler(error_handler)
+        
         logger.info(f"Starting bot in {env} mode...")
         updater.start_polling(drop_pending_updates=True)
-        
-        # Run the bot until the user presses Ctrl-C
         updater.idle()
         
     except Exception as e:
