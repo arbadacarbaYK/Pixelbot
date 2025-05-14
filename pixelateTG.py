@@ -108,11 +108,18 @@ def get_file_path(directory, id_prefix, session_id, suffix):
 
 def cleanup_temp_files():
     """Clean up temporary files in downloads and processed directories"""
-    for directory in ['downloads', 'processed']:
-        if os.path.exists(directory):
-            for f in os.listdir(directory):
-                os.remove(os.path.join(directory, f))
-            logger.info(f"Cleaned up {directory} directory")
+    try:
+        for directory in ['processed']:  # Only clean processed directory, keep downloads
+            if os.path.exists(directory):
+                for f in os.listdir(directory):
+                    try:
+                        os.remove(os.path.join(directory, f))
+                        logger.debug(f"Cleaned up {f} from {directory}")
+                    except Exception as e:
+                        logger.warning(f"Failed to clean up {f}: {e}")
+                logger.info(f"Cleaned up {directory} directory")
+    except Exception as e:
+        logger.error(f"Error in cleanup_temp_files: {e}")
 
 def start(update: Update, context: CallbackContext) -> None:
     """Handle /start command"""
@@ -509,10 +516,16 @@ def handle_message(update: Update, context: CallbackContext, photo=None) -> None
             message.reply_text("Please send me a photo or GIF!")
             return
 
-        # Store session data
-        if 'sessions' not in context.user_data:
-            context.user_data['sessions'] = {}
-        context.user_data['sessions'][session_id] = session_data
+        # Store session data in appropriate context
+        if chat_type in ['group', 'supergroup']:
+            if 'sessions' not in context.chat_data:
+                context.chat_data['sessions'] = {}
+            context.chat_data['sessions'][session_id] = session_data
+        else:
+            if 'sessions' not in context.user_data:
+                context.user_data['sessions'] = {}
+            context.user_data['sessions'][session_id] = session_data
+            
         logger.debug(f"Created new session: {session_id}")
         
         # Create keyboard - show full pixelation only for photos, not GIFs
@@ -571,11 +584,12 @@ def button_callback(update: Update, context: CallbackContext) -> None:
     try:
         query = update.callback_query
         session_id, action = query.data.split(':')
+        chat_type = query.message.chat.type
         
         # Handle navigation actions first
         if action == 'cancel':
             # In DMs, only the original sender can cancel
-            if query.message.chat.type == 'private':
+            if chat_type == 'private':
                 query.message.delete()
             return
         elif action == 'cancel_group':
@@ -587,22 +601,22 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             query.edit_message_reply_markup(reply_markup=keyboard)
             return
             
-        # Get session data from the sessions dictionary
-        if 'sessions' not in context.user_data:
-            logger.error(f"No sessions found in user_data")
-            query.edit_message_text(text="Session expired, please send a new photo!")
-            return
-            
-        session_data = context.user_data['sessions'].get(session_id)
+        # Get session data from the appropriate context
+        session_data = None
+        if chat_type in ['group', 'supergroup']:
+            if 'sessions' in context.chat_data:
+                session_data = context.chat_data['sessions'].get(session_id)
+        else:
+            if 'sessions' in context.user_data:
+                session_data = context.user_data['sessions'].get(session_id)
+                
         if not session_data:
             logger.error(f"No session data found for {session_id}")
-            query.edit_message_text(text="Session expired, please send a new photo!")
             return
             
         input_path = session_data['input_path']
         if not os.path.exists(input_path):
             logger.error(f"Input file not found: {input_path}")
-            query.edit_message_text(text="Original photo not found, please send a new one!")
             return
 
         # Handle GIF processing
@@ -620,11 +634,11 @@ def button_callback(update: Update, context: CallbackContext) -> None:
                     context.bot.send_animation(
                         chat_id=session_data['chat_id'],
                         animation=f,
-                        reply_to_message_id=query.message.message_id
+                        reply_to_message_id=session_data['original_message_id']  # Reply to original message
                     )
             else:
                 query.answer("Failed to process GIF!")
-                return
+            return
                 
         # Handle Photo processing
         else:
@@ -659,29 +673,23 @@ def button_callback(update: Update, context: CallbackContext) -> None:
                     context.bot.send_photo(
                         chat_id=session_data['chat_id'],
                         photo=f,
-                        reply_to_message_id=query.message.message_id,
+                        reply_to_message_id=session_data['original_message_id'],  # Reply to original message
                         reply_markup=keyboard
                     )
             else:
                 query.answer(f"Failed to process {action}!")
-                return
+            return
 
         # Just acknowledge the button press
         query.answer()
         
-        # Cleanup processed file
-        try:
-            os.remove(output_path)
-            logger.debug(f"Cleaned up {output_path}")
-        except Exception as e:
-            logger.warning(f"Failed to cleanup {output_path}: {e}")
-            
     except Exception as e:
-        logger.error(f'Error in button callback: {str(e)}')
+        logger.error(f"Error in button_callback: {str(e)}")
         logger.error(traceback.format_exc())
-        if query:
-            query.answer("Sorry, there was an error processing your request")
-        cleanup_temp_files()
+        try:
+            query.answer("An error occurred!")
+        except:
+            pass
 
 def get_last_update_id() -> int:
     try:
@@ -695,18 +703,22 @@ def save_last_update_id(update_id: int) -> None:
         f.write(str(update_id))
 
 def cleanup_old_files():
-    """Cleanup files older than 24 hours"""
-    current_time = time.time()
-    for directory in ['processed', 'downloads']:
-        if os.path.exists(directory):
-            for f in os.listdir(directory):
-                filepath = os.path.join(directory, f)
-                if os.path.getmtime(filepath) < (current_time - 86400):  # 24 hours
-                    try:
-                        os.remove(filepath)
-                        logger.debug(f"Removed old file: {filepath}")
-                    except Exception as e:
-                        logger.error(f"Failed to remove {filepath}: {e}")
+    """Cleanup files older than 6 hours"""
+    try:
+        current_time = time.time()
+        for directory in ['processed', 'downloads']:
+            if os.path.exists(directory):
+                for f in os.listdir(directory):
+                    filepath = os.path.join(directory, f)
+                    # Keep files around for 6 hours to ensure they're available for group chats
+                    if os.path.getmtime(filepath) < (current_time - 21600):  # 6 hours
+                        try:
+                            os.remove(filepath)
+                            logger.debug(f"Removed old file: {filepath}")
+                        except Exception as e:
+                            logger.warning(f"Failed to remove {filepath}: {e}")
+    except Exception as e:
+        logger.error(f"Error in cleanup_old_files: {e}")
 
 def get_rotated_overlay(overlay_img, angle, size):
     """Cache and return rotated overlays"""
@@ -783,11 +795,7 @@ def main() -> None:
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
 
-        # Get environment from ENV var, default to 'development'
-        env = os.getenv('BOT_ENV', 'development')
-        logger.info(f"Starting bot in {env} environment")
-        
-        # Initialize as before
+        # Initialize directories
         if not verify_permissions():
             logger.error("Failed to verify directory permissions")
             return
@@ -797,7 +805,9 @@ def main() -> None:
                 os.makedirs(directory)
                 logger.info(f"Created directory: {directory}")
                 
+        # Only clean processed files on startup, keep downloads
         cleanup_temp_files()
+        
         socket.setdefaulttimeout(20)
         urllib3.disable_warnings()
         
@@ -832,7 +842,7 @@ def main() -> None:
         # Add handlers
         dispatcher.add_handler(CommandHandler("start", start))
         dispatcher.add_handler(CommandHandler("help", help_command))
-        dispatcher.add_handler(CommandHandler("pixel", photo_command))  # Changed from "photo" to "pixel"
+        dispatcher.add_handler(CommandHandler("pixel", photo_command))
         
         # Add media handlers - these will only work in private chats due to handle_message logic
         dispatcher.add_handler(MessageHandler(Filters.photo, handle_message))
@@ -844,7 +854,7 @@ def main() -> None:
         # Add error handler
         dispatcher.add_error_handler(error_handler)
         
-        logger.info(f"Starting bot in {env} mode...")
+        logger.info("Starting bot...")
         updater.start_polling(drop_pending_updates=True)
         updater.idle()
         
