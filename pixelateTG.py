@@ -591,14 +591,17 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             # In DMs, only the original sender can cancel
             if chat_type == 'private':
                 query.message.delete()
+                query.answer()  # Just acknowledge without message
             return
         elif action == 'cancel_group':
             # In groups, anyone can cancel
             query.message.delete()
+            query.answer()  # Just acknowledge without message
             return
         elif action == 'back':
             keyboard = get_main_keyboard(session_id)
             query.edit_message_reply_markup(reply_markup=keyboard)
+            query.answer()  # Just acknowledge without message
             return
             
         # Get session data from the appropriate context
@@ -612,11 +615,13 @@ def button_callback(update: Update, context: CallbackContext) -> None:
                 
         if not session_data:
             logger.error(f"No session data found for {session_id}")
+            query.message.delete()  # Just remove the message if session not found
             return
             
         input_path = session_data['input_path']
         if not os.path.exists(input_path):
             logger.error(f"Input file not found: {input_path}")
+            query.message.delete()  # Just remove the message if file not found
             return
 
         # Handle GIF processing
@@ -687,7 +692,8 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         logger.error(f"Error in button_callback: {str(e)}")
         logger.error(traceback.format_exc())
         try:
-            query.answer("An error occurred!")
+            query.answer()  # Just acknowledge without error message
+            query.message.delete()  # Clean up the message on error
         except:
             pass
 
