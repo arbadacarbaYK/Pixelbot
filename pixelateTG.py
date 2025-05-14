@@ -397,67 +397,6 @@ def process_gif(gif_path, session_id, id_prefix, bot, action):
         logger.error(traceback.format_exc())
         return None
 
-async def handle_callback(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    await query.answer()
-    
-    # Split the callback data to get session_id and action
-    session_id, action = query.data.split(':')
-    
-    if action == 'pixelate':
-        keyboard = get_pixelation_keyboard(session_id)
-        await query.edit_message_reply_markup(reply_markup=keyboard)
-        return
-    
-    if action == 'full_pixelate':
-        keyboard = get_full_pixelation_keyboard(session_id)
-        await query.edit_message_reply_markup(reply_markup=keyboard)
-        return
-        
-    if action == 'back':
-        keyboard = get_main_keyboard(session_id)
-        await query.edit_message_reply_markup(reply_markup=keyboard)
-        return
-        
-    # Get user data
-    user_id = update.effective_user.id
-    user_data = context.user_data.get(user_id, {})
-    
-    if query.data.startswith('full_'):
-        if not user_data.get('photo_path'):
-            await query.message.reply_text("Please send a photo first!")
-            return
-            
-        factor = float(query.data.split('_')[1])
-        output_path = f"{user_data['photo_path']}_processed.jpg"
-        
-        success = process_full_image(user_data['photo_path'], output_path, factor)
-        if success:
-            with open(output_path, 'rb') as photo:
-                keyboard = get_full_pixelation_keyboard(session_id)
-                await query.message.reply_photo(photo=photo, reply_markup=keyboard)
-        else:
-            await query.message.reply_text("Sorry, I couldn't process that image.")
-        return
-        
-    # Handle other overlay types (pixelate, clown, etc.)
-    if not user_data.get('photo_path'):
-        await query.message.reply_text("Please send a photo first!")
-        return
-        
-    output_path = f"{user_data['photo_path']}_processed.jpg"
-    success = process_image(user_data['photo_path'], output_path, query.data)
-    
-    if success:
-        with open(output_path, 'rb') as photo:
-            # Keep the same keyboard for pixelation options
-            keyboard = None
-            if query.data.startswith('pixelate_'):
-                keyboard = get_pixelation_keyboard(session_id)
-            await query.message.reply_photo(photo=photo, reply_markup=keyboard)
-    else:
-        await query.message.reply_text("Sorry, I couldn't process that image.")
-
 def handle_message(update: Update, context: CallbackContext, photo=None) -> None:
     try:
         message = photo if photo else update.message
@@ -521,10 +460,12 @@ def handle_message(update: Update, context: CallbackContext, photo=None) -> None
             if 'sessions' not in context.chat_data:
                 context.chat_data['sessions'] = {}
             context.chat_data['sessions'][session_id] = session_data
+            logger.debug(f"Stored session {session_id} in chat_data")
         else:
             if 'sessions' not in context.user_data:
                 context.user_data['sessions'] = {}
             context.user_data['sessions'][session_id] = session_data
+            logger.debug(f"Stored session {session_id} in user_data")
             
         logger.debug(f"Created new session: {session_id}")
         
@@ -591,17 +532,17 @@ def button_callback(update: Update, context: CallbackContext) -> None:
             # In DMs, only the original sender can cancel
             if chat_type == 'private':
                 query.message.delete()
-                query.answer()  # Just acknowledge without message
+            query.answer()
             return
         elif action == 'cancel_group':
             # In groups, anyone can cancel
             query.message.delete()
-            query.answer()  # Just acknowledge without message
+            query.answer()
             return
         elif action == 'back':
             keyboard = get_main_keyboard(session_id)
             query.edit_message_reply_markup(reply_markup=keyboard)
-            query.answer()  # Just acknowledge without message
+            query.answer()
             return
             
         # Get session data from the appropriate context
@@ -609,19 +550,23 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         if chat_type in ['group', 'supergroup']:
             if 'sessions' in context.chat_data:
                 session_data = context.chat_data['sessions'].get(session_id)
+                logger.debug(f"Got session {session_id} from chat_data: {session_data is not None}")
         else:
             if 'sessions' in context.user_data:
                 session_data = context.user_data['sessions'].get(session_id)
+                logger.debug(f"Got session {session_id} from user_data: {session_data is not None}")
                 
         if not session_data:
             logger.error(f"No session data found for {session_id}")
-            query.message.delete()  # Just remove the message if session not found
+            query.message.delete()
+            query.answer()
             return
             
         input_path = session_data['input_path']
         if not os.path.exists(input_path):
             logger.error(f"Input file not found: {input_path}")
-            query.message.delete()  # Just remove the message if file not found
+            query.message.delete()
+            query.answer()
             return
 
         # Handle GIF processing
@@ -658,6 +603,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
                 # Show full pixelation keyboard
                 keyboard = get_full_pixelation_keyboard(session_id)
                 query.edit_message_reply_markup(reply_markup=keyboard)
+                query.answer()
                 return
             elif action.startswith('full_'):
                 # Handle full pixelation with specific factor
@@ -681,6 +627,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
                         reply_to_message_id=session_data['original_message_id'],  # Reply to original message
                         reply_markup=keyboard
                     )
+                query.answer()
             else:
                 query.answer(f"Failed to process {action}!")
             return
@@ -692,8 +639,8 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         logger.error(f"Error in button_callback: {str(e)}")
         logger.error(traceback.format_exc())
         try:
-            query.answer()  # Just acknowledge without error message
-            query.message.delete()  # Clean up the message on error
+            query.answer()
+            query.message.delete()
         except:
             pass
 
@@ -854,7 +801,7 @@ def main() -> None:
         dispatcher.add_handler(MessageHandler(Filters.photo, handle_message))
         dispatcher.add_handler(MessageHandler(gif_filter, handle_message))
         
-        # Add callback handler
+        # Add callback handler - only use button_callback, not handle_callback
         dispatcher.add_handler(CallbackQueryHandler(button_callback))
         
         # Add error handler
